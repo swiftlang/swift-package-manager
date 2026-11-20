@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import TSCBasic
-import Foundation
+package import Foundation
 import Synchronization
 
 #if SWIFT_PACKAGE && (os(Windows) || os(Android))

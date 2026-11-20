@@ -10,11 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+public import Basics
 import Foundation
 import TSCUtility
 
-import class Basics.AsyncProcess
+public import class Basics.AsyncProcess
 
 public struct MinimumDeploymentTarget {
     private struct MinimumDeploymentTargetKey: Hashable {

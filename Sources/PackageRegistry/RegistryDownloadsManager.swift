@@ -10,16 +10,16 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+public import Basics
 import _Concurrency
-import Dispatch
+public import Dispatch
 import Foundation
 import PackageLoading
-import PackageModel
+public import PackageModel
 import Synchronization
-import TSCBasic
+public import TSCBasic
 
-import struct TSCUtility.Version
+public import struct TSCUtility.Version
 
 public class RegistryDownloadsManager: AsyncCancellable {
     public typealias Delegate = RegistryDownloadsManagerDelegate

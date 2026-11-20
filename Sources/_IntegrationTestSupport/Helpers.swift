@@ -11,10 +11,10 @@
 //===----------------------------------------------------------------------===//
 
 import Foundation
-import Testing
+package import Testing
 import _InternalTestSupport
 import enum TSCUtility.Git
-import Basics
+public import Basics
 
 package typealias ShReturnType = (stdout: String, stderr: String, returnCode: AsyncProcessResult.ExitStatus)
 

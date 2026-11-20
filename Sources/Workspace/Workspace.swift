@@ -11,26 +11,26 @@
 //===----------------------------------------------------------------------===//
 
 import _Concurrency
-import Basics
+public import Basics
 import Foundation
-import PackageFingerprint
-import PackageGraph
-import PackageLoading
-import PackageModel
-import PackageRegistry
-import PackageSigning
-import SourceControl
+public import PackageFingerprint
+public import PackageGraph
+public import PackageLoading
+public import PackageModel
+public import PackageRegistry
+public import PackageSigning
+public import SourceControl
 
-import func TSCBasic.findCycle
-import protocol TSCBasic.HashAlgorithm
-import struct TSCBasic.KeyedPair
-import struct TSCBasic.SHA256
-import var TSCBasic.stderrStream
-import func TSCBasic.topologicalSort
-import func TSCBasic.transitiveClosure
+public import func TSCBasic.findCycle
+public import protocol TSCBasic.HashAlgorithm
+public import struct TSCBasic.KeyedPair
+public import struct TSCBasic.SHA256
+public import var TSCBasic.stderrStream
+public import func TSCBasic.topologicalSort
+public import func TSCBasic.transitiveClosure
 
-import enum TSCUtility.Diagnostics
-import struct TSCUtility.Version
+public import enum TSCUtility.Diagnostics
+public import struct TSCUtility.Version
 
 /// Enumeration of the different reasons for which the resolver needs to be run.
 public enum WorkspaceResolveReason: Equatable {

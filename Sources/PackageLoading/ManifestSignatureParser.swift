@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+public import Basics
 import struct Foundation.Data
 
 public enum ManifestSignatureParser {

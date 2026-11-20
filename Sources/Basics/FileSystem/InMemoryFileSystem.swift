@@ -12,11 +12,11 @@
 
 import class Dispatch.DispatchQueue
 import Synchronization
-import struct TSCBasic.AbsolutePath
-import struct TSCBasic.ByteString
-import class TSCBasic.FileLock
-import enum TSCBasic.FileMode
-import struct TSCBasic.FileSystemError
+public import struct TSCBasic.AbsolutePath
+public import struct TSCBasic.ByteString
+public import class TSCBasic.FileLock
+public import enum TSCBasic.FileMode
+public import struct TSCBasic.FileSystemError
 
 /// Concrete FileSystem implementation which simulates an empty disk.
 public final class InMemoryFileSystem: FileSystem {

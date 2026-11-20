@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import SPMBuildCore
+public import SPMBuildCore
 
 public func generateTestObservationCode(buildParameters: BuildParameters) -> String {
     guard buildParameters.triple.supportsTestSummary else {

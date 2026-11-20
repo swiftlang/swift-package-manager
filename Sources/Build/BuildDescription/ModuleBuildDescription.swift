@@ -10,15 +10,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
-import struct PackageGraph.ResolvedModule
-import struct PackageGraph.ResolvedPackage
-import struct PackageGraph.ResolvedProduct
+public import Basics
+public import struct PackageGraph.ResolvedModule
+public import struct PackageGraph.ResolvedPackage
+public import struct PackageGraph.ResolvedProduct
 import struct PackageModel.Resource
 import struct PackageModel.ToolsVersion
-import struct SPMBuildCore.BuildToolPluginInvocationResult
-import struct SPMBuildCore.BuildParameters
-import protocol SPMBuildCore.ModuleBuildDescription
+public import struct SPMBuildCore.BuildToolPluginInvocationResult
+public import struct SPMBuildCore.BuildParameters
+public import protocol SPMBuildCore.ModuleBuildDescription
 
 public enum BuildDescriptionError: Swift.Error {
     case requestedFileNotPartOfTarget(targetName: String, requestedFilePath: AbsolutePath)

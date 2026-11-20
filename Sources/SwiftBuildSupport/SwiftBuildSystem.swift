@@ -11,32 +11,32 @@
 //===----------------------------------------------------------------------===//
 
 @_spi(SwiftPMInternal)
-import Basics
-import SPMBuildCore // for the Basics.Diagnostic extension
-import Dispatch
-import class Foundation.FileManager
-import class Foundation.JSONEncoder
-import class Foundation.NSArray
-import class Foundation.NSDictionary
-import PackageGraph
-import PackageModel
-import PackageLoading
+public import Basics
+public import SPMBuildCore // for the Basics.Diagnostic extension
+public import Dispatch
+package import class Foundation.FileManager
+package import class Foundation.JSONEncoder
+package import class Foundation.NSArray
+package import class Foundation.NSDictionary
+public import PackageGraph
+public import PackageModel
+public import PackageLoading
 
 @_spi(SwiftPMInternal)
-import SPMBuildCore
+public import SPMBuildCore
 
-import class Basics.AsyncProcess
-import func TSCBasic.memoize
-import protocol TSCBasic.OutputByteStream
-import func TSCBasic.withTemporaryFile
+public import class Basics.AsyncProcess
+public import func TSCBasic.memoize
+public import protocol TSCBasic.OutputByteStream
+public import func TSCBasic.withTemporaryFile
 
 import enum TSCUtility.Diagnostics
 
-import var TSCBasic.stdoutStream
+public import var TSCBasic.stdoutStream
 
-import Foundation
+package import Foundation
 import SWBBuildService
-import SwiftBuild
+public import SwiftBuild
 import enum SWBCore.SwiftAPIDigesterMode
 import SWBUtil
 

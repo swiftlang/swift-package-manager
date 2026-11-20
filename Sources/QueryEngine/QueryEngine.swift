@@ -10,8 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-import _AsyncFileSystem
-import Basics
+package import _AsyncFileSystem
+package import Basics
 import Crypto
 
 package func withQueryEngine(

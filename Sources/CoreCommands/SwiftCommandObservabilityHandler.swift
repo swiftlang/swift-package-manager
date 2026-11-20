@@ -11,16 +11,16 @@
 //===----------------------------------------------------------------------===//
 
 @_spi(SwiftPMInternal)
-import Basics
-import Dispatch
+public import Basics
+public import Dispatch
 import PackageModel
 
-import protocol TSCBasic.OutputByteStream
-import class TSCBasic.TerminalController
-import class TSCBasic.ThreadSafeOutputByteStream
+public import protocol TSCBasic.OutputByteStream
+public import class TSCBasic.TerminalController
+public import class TSCBasic.ThreadSafeOutputByteStream
 
-import class TSCBasic.BufferedOutputByteStream
-import class TSCBasic.LocalFileOutputByteStream
+public import class TSCBasic.BufferedOutputByteStream
+public import class TSCBasic.LocalFileOutputByteStream
 import class TSCUtility.MultiLineNinjaProgressAnimation
 import class TSCUtility.NinjaProgressAnimation
 import protocol TSCUtility.ProgressAnimationProtocol

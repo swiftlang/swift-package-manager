@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+public import Basics
 
 private let namesToExclude = [".git", ".build"]
 

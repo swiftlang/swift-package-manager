@@ -16,8 +16,8 @@ import class PackageLoading.ManifestLoader
 import class PackageModel.UserToolchain
 import struct PackageModel.ToolsVersion
 import DriverSupport
-import Basics
-import Testing
+public import Basics
+public import Testing
 import TSCclibc  // for SPM_posix_spawn_file_actions_addchdir_np_supported
 
 extension Trait where Self == Testing.ConditionTrait {

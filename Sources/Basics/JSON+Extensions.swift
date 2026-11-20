@@ -10,10 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-import struct Foundation.Data
-import class Foundation.DateFormatter
-import class Foundation.JSONDecoder
-import class Foundation.JSONEncoder
+public import struct Foundation.Data
+public import class Foundation.DateFormatter
+public import class Foundation.JSONDecoder
+public import class Foundation.JSONEncoder
 
 extension JSONDecoder {
     public static func makeWithDefaults(dateDecodingStrategy: DateDecodingStrategy = .iso8601) -> JSONDecoder {

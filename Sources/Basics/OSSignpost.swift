@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 #if canImport(os)
-import os
+public import os
 
 extension os.OSLog {
     @usableFromInline

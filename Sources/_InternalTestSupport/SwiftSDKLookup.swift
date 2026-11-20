@@ -10,11 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+package import Basics
 import Foundation
 import PackageModel
 
-import class Basics.AsyncProcess
+package import class Basics.AsyncProcess
 
 /// Returns the compiler tag reported by `swiftc -print-target-info`, used as the prefix of
 /// installed Swift SDK artifact IDs (e.g. `swift-6.2-DEVELOPMENT-SNAPSHOT-2025-XX-XX-a`).

@@ -11,10 +11,10 @@
 //===----------------------------------------------------------------------===//
 import Foundation
 
-import struct Basics.AbsolutePath
-import protocol Basics.FileSystem
-import var Basics.localFileSystem
-import class Basics.ObservabilityScope
+package import struct Basics.AbsolutePath
+package import protocol Basics.FileSystem
+package import var Basics.localFileSystem
+package import class Basics.ObservabilityScope
 
 package func createBuildSymbolicLinks(
     _ path: Basics.AbsolutePath,

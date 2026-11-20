@@ -10,20 +10,20 @@
 //
 //===----------------------------------------------------------------------===//
 
-import struct Basics.AbsolutePath
-import struct Basics.Diagnostic
-import enum Dispatch.DispatchTimeInterval
-import struct Foundation.URL
+public import struct Basics.AbsolutePath
+public import struct Basics.Diagnostic
+public import enum Dispatch.DispatchTimeInterval
+public import struct Foundation.URL
 import class PackageLoading.ManifestLoader
-import class PackageModel.Manifest
-import struct PackageModel.PackageIdentity
-import struct PackageModel.PackageReference
-import struct PackageModel.Registry
+public import class PackageModel.Manifest
+public import struct PackageModel.PackageIdentity
+public import struct PackageModel.PackageReference
+public import struct PackageModel.Registry
 import class PackageRegistry.RegistryClient
 import class PackageRegistry.RegistryDownloadsManager
 import class SourceControl.RepositoryManager
 import struct SourceControl.RepositorySpecifier
-import struct TSCUtility.Version
+public import struct TSCUtility.Version
 
 /// The delegate interface used by the workspace to report status information.
 public protocol WorkspaceDelegate: AnyObject {

@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import _Concurrency
-import Dispatch
+package import Dispatch
 import Foundation
 
 #if os(Windows)
@@ -39,11 +39,11 @@ package import func TSCclibc.SPM_posix_spawnp
 #endif // #if USE_IMPL_ONLY_IMPORTS
 #endif
 
-import class TSCBasic.CStringArray
-import class TSCBasic.LocalFileOutputByteStream
-import enum TSCBasic.SystemError
-import class TSCBasic.Thread
-import protocol TSCBasic.WritableByteStream
+package import class TSCBasic.CStringArray
+package import class TSCBasic.LocalFileOutputByteStream
+package import enum TSCBasic.SystemError
+package import class TSCBasic.Thread
+package import protocol TSCBasic.WritableByteStream
 
 /// Process result data which is available after process termination.
 package struct AsyncProcessResult: CustomStringConvertible, Sendable {

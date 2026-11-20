@@ -10,11 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+public import Basics
 import Foundation
-import PackageModel
+public import PackageModel
 
-import struct TSCUtility.Version
+public import struct TSCUtility.Version
 
 extension Manifest {
     public static func createRootManifest(

@@ -10,8 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-import struct Basics.AbsolutePath
-import struct Basics.StringError
+public import struct Basics.AbsolutePath
+public import struct Basics.StringError
 import TSCBasic
 
 @available(*, deprecated, renamed: "ClangModule")

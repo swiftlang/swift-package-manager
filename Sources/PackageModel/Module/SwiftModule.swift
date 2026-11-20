@@ -10,8 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-import struct Basics.AbsolutePath
-import struct Basics.SwiftVersion
+public import struct Basics.AbsolutePath
+public import struct Basics.SwiftVersion
 
 @available(*, deprecated, renamed: "SwiftModule")
 public typealias SwiftTarget = SwiftModule
