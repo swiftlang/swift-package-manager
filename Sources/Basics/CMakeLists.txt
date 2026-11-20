@@ -94,7 +94,7 @@ target_link_libraries(Basics PRIVATE
   SwiftCollections::DequeModule
   SwiftSubprocess::Subprocess
   SwiftSystem::SystemPackage
-  SPMSQLite3
+  ${SwiftPM_SQLite3_TARGET}
   TSCclibc)
 
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
@@ -108,3 +108,6 @@ install(TARGETS Basics
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin)
 set_property(GLOBAL APPEND PROPERTY SwiftPM_EXPORTS Basics)
+if(SwiftPM_USE_VENDORED_SQLite3)
+  set_property(GLOBAL APPEND PROPERTY SwiftPM_EXPORTS SQLite3)
+endif()
