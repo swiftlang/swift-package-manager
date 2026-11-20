@@ -48,7 +48,44 @@ endif()
 
 find_package(dispatch QUIET)
 find_package(Foundation QUIET)
-find_package(SQLite3 REQUIRED)
+
+# Swift code imports the `SQLite3` module provided by the SDK on Darwin, and the
+# `SwiftToolchainCSQLite` module from swift-toolchain-sqlite everywhere else.
+set(SwiftPM_USE_VENDORED_SQLite3 NO)
+if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
+  find_package(SQLite3 REQUIRED)
+else()
+  find_package(SQLite3 QUIET)
+  if(SQLite3_FOUND)
+    # A system SQLite3 does not come with the `SwiftToolchainCSQLite` module,
+    # so only use a found SQLite3 if it is the one from swift-toolchain-sqlite.
+    set(SwiftPM_SQLite3_MODULEMAP "${SQLite3_INCLUDE_DIR}/module.modulemap")
+    if(NOT EXISTS "${SwiftPM_SQLite3_MODULEMAP}")
+      set(SQLite3_FOUND NO)
+    else()
+      file(STRINGS "${SwiftPM_SQLite3_MODULEMAP}" SwiftPM_SQLite3_MODULE
+        REGEX "module[ \t]+SwiftToolchainCSQLite")
+      if(NOT SwiftPM_SQLite3_MODULE)
+        set(SQLite3_FOUND NO)
+      endif()
+    endif()
+  endif()
+  if(NOT SQLite3_FOUND)
+    include(FetchContent)
+
+    message(STATUS "Vendoring SQLite3")
+    FetchContent_Declare(SQLite
+      GIT_REPOSITORY https://github.com/swiftlang/swift-toolchain-sqlite
+      GIT_TAG 1.0.9)
+
+    FetchContent_MakeAvailable(SQLite)
+
+    if(NOT TARGET SQLite::SQLite3)
+      add_library(SQLite::SQLite3 ALIAS SQLite3)
+    endif()
+    set(SwiftPM_USE_VENDORED_SQLite3 YES)
+  endif()
+endif()
 
 # Enable `package` modifier for the whole package.
 add_compile_options("$<$<COMPILE_LANGUAGE:Swift>:SHELL:-package-name swift_package_manager>")
