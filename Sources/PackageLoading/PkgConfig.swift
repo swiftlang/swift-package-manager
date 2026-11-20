@@ -10,13 +10,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+public import Basics
 import Foundation
 import OrderedCollections
 import TSCUtility
-import TSCBasic
+public import TSCBasic
 
-import class Basics.AsyncProcess
+public import class Basics.AsyncProcess
 
 /// Information on an individual `pkg-config` supported package.
 public struct PkgConfig {

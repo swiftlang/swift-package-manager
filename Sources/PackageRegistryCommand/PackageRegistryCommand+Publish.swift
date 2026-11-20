@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import ArgumentParser
+public import ArgumentParser
 import Basics
 import Commands
 import CoreCommands
@@ -18,7 +18,7 @@ import Foundation
 import PackageModel
 import PackageFingerprint
 import PackageRegistry
-import PackageSigning
+public import PackageSigning
 import SourceControl
 import Workspace
 

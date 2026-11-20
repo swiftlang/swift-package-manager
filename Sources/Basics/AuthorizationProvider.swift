@@ -10,10 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-import TSCBasic
-import struct Foundation.Data
-import struct Foundation.Date
-import struct Foundation.URL
+public import TSCBasic
+public import struct Foundation.Data
+public import struct Foundation.Date
+public import struct Foundation.URL
 #if canImport(Security)
 import Security
 #endif

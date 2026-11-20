@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import ArgumentParser
+public import ArgumentParser
 import Basics
 import Commands
 import CoreCommands

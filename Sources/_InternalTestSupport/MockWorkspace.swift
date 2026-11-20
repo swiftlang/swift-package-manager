@@ -11,17 +11,17 @@
 //===----------------------------------------------------------------------===//
 
 import _Concurrency
-import Basics
-import PackageGraph
+public import Basics
+public import PackageGraph
 import PackageLoading
-import PackageModel
-import PackageRegistry
-import SourceControl
-import Workspace
-import XCTest
+public import PackageModel
+public import PackageRegistry
+public import SourceControl
+public import Workspace
+public import XCTest
 
-import struct TSCUtility.Version
-import enum TSCBasic.JSON
+public import struct TSCUtility.Version
+package import enum TSCBasic.JSON
 
 extension UserToolchain {
     package static var mockTargetInfo: JSON {

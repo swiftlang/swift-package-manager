@@ -10,18 +10,18 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
-import Foundation
-import PackageFingerprint
+public import Basics
+public import Foundation
+public import PackageFingerprint
 import PackageGraph
 import PackageLoading
-import PackageModel
-import PackageRegistry
-import PackageSigning
+public import PackageModel
+public import PackageRegistry
+public import PackageSigning
 
-import protocol TSCBasic.HashAlgorithm
+public import protocol TSCBasic.HashAlgorithm
 
-import struct TSCUtility.Version
+public import struct TSCUtility.Version
 
 public class MockRegistry {
     private let baseURL: URL

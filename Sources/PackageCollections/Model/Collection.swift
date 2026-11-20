@@ -11,8 +11,8 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-import struct Foundation.Date
-import struct Foundation.URL
+public import struct Foundation.Date
+public import struct Foundation.URL
 import PackageModel
 import SourceControl
 

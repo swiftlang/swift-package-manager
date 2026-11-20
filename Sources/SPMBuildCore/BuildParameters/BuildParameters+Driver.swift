@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+public import Basics
 
 extension BuildParameters {
     /// A mode for explicit import checking

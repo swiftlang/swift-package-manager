@@ -10,10 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+public import Basics
 import Foundation
-import PackageModel
-import TSCBasic
+public import PackageModel
+public import TSCBasic
 
 public enum RegistryReleaseMetadataStorage {
     public static let fileName = ".registry-metadata"

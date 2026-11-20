@@ -10,15 +10,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
-import Dispatch
-import PackageModel
-import PackageLoading
+public import Basics
+public import Dispatch
+public import PackageModel
+public import PackageLoading
 import PackageGraph
 
 import func XCTest.XCTFail
 
-import struct TSCUtility.Version
+public import struct TSCUtility.Version
 
 public enum MockManifestLoaderError: Swift.Error {
     case unknownRequest(String)

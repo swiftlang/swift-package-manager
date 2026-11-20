@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Foundation
+public import Foundation
 #if os(Windows)
 @_implementationOnly import ucrt
 @_implementationOnly import WinSDK

@@ -13,13 +13,13 @@
 import SourceControl
 import TSCBasic
 
-import class Basics.ObservabilityScope
+public import class Basics.ObservabilityScope
 import class Dispatch.DispatchQueue
 import enum PackageFingerprint.FingerprintCheckingMode
-import enum PackageGraph.ContainerUpdateStrategy
-import protocol PackageGraph.PackageContainer
-import protocol PackageGraph.PackageContainerProvider
-import struct PackageModel.PackageReference
+public import enum PackageGraph.ContainerUpdateStrategy
+public import protocol PackageGraph.PackageContainer
+public import protocol PackageGraph.PackageContainerProvider
+public import struct PackageModel.PackageReference
 
 // MARK: - Package container provider
 

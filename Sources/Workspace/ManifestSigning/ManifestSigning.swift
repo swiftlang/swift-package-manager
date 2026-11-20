@@ -11,9 +11,9 @@
 //===----------------------------------------------------------------------===//
 
 
-import Basics
+public import Basics
 import Dispatch
-import Foundation
+public import Foundation
 import SwiftASN1
 
 #if USE_IMPL_ONLY_IMPORTS

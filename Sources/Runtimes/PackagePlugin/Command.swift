@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Foundation
+public import Foundation
 
 /// A command to run during the build.
 ///

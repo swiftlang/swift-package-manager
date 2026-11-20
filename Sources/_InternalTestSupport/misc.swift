@@ -10,11 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Foundation
-import Basics
-import struct Foundation.URL
+public import Foundation
+public import Basics
+public import struct Foundation.URL
 #if os(macOS)
-import class Foundation.Bundle
+public import class Foundation.Bundle
 #endif
 import OrderedCollections
 
@@ -22,19 +22,19 @@ import OrderedCollections
 import PackageGraph
 
 import PackageLoading
-import PackageModel
+public import PackageModel
 import SourceControl
-import SPMBuildCore
-import struct SPMBuildCore.BuildParameters
+public import SPMBuildCore
+public import struct SPMBuildCore.BuildParameters
 import TSCTestSupport
-import Workspace
-import enum Commands.CoverageFormat
-import Testing
+public import Workspace
+package import enum Commands.CoverageFormat
+public import Testing
 import func XCTest.XCTFail
 import struct XCTest.XCTSkip
 
-import class TSCBasic.Process
-import struct TSCBasic.ByteString
+public import class TSCBasic.Process
+public import struct TSCBasic.ByteString
 
 import enum TSCUtility.Git
 

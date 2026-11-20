@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+package import Basics
 import Foundation
 
 // looking into the file content to see if it is using the @main annotation

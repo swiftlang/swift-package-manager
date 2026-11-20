@@ -14,11 +14,11 @@ import _Concurrency
 
 import Basics
 import Dispatch
-import struct Foundation.Data
-import struct Foundation.Date
-import class Foundation.JSONDecoder
-import class Foundation.ProcessInfo
-import struct Foundation.URL
+public import struct Foundation.Data
+public import struct Foundation.Date
+public import class Foundation.JSONDecoder
+public import class Foundation.ProcessInfo
+public import struct Foundation.URL
 
 import PackageCollectionsModel
 import PackageCollectionsSigning

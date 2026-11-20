@@ -10,8 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Dispatch
-import struct TSCBasic.FileSystemError
+public import Dispatch
+public import struct TSCBasic.FileSystemError
 #if USE_IMPL_ONLY_IMPORTS
 @_implementationOnly import Subprocess
 #if canImport(System)

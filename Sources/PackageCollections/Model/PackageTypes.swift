@@ -10,13 +10,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-import struct Foundation.Date
-import struct Foundation.URL
+public import struct Foundation.Date
+public import struct Foundation.URL
 
-import PackageModel
+public import PackageModel
 import SourceControl
 
-import struct TSCUtility.Version
+public import struct TSCUtility.Version
 
 extension PackageCollectionsModel {
     /// Package metadata

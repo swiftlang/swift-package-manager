@@ -10,13 +10,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+package import Basics
 import Foundation
-import PackageModel
+public import PackageModel
 import Workspace
 
 import struct TSCBasic.ByteString
-import class Basics.AsyncProcess
+package import class Basics.AsyncProcess
 import struct TSCBasic.StringError
 import struct TSCUtility.SerializedDiagnostics
 

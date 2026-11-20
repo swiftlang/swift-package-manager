@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+package import Basics
 import RegexBuilder
 import Subprocess
 #if canImport(System)

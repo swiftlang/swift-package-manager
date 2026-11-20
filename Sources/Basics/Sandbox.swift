@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Foundation
-import func TSCBasic.determineTempDirectory
+public import func TSCBasic.determineTempDirectory
 
 public enum SandboxNetworkPermission: Equatable {
     case none

@@ -11,12 +11,12 @@
 //===----------------------------------------------------------------------===//
 
 @_spi(SwiftPMInternal)
-import Basics
+public import Basics
 import Foundation
-import PackageModel
+public import PackageModel
 import SwiftDriver
-import class TSCBasic.Process
-import struct TSCBasic.ProcessResult
+public import class TSCBasic.Process
+public import struct TSCBasic.ProcessResult
 
 public enum DriverSupport {
     private static var flagsMap = ThreadSafeBox<[String: Set<String>]>([:])

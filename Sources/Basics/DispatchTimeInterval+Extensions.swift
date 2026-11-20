@@ -10,8 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Dispatch
-import struct Foundation.TimeInterval
+public import Dispatch
+public import struct Foundation.TimeInterval
 
 extension DispatchTimeInterval {
     public func timeInterval() -> TimeInterval? {

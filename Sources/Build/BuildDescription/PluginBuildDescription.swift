@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import PackageGraph
-import PackageModel
+public import PackageModel
 
 import struct Basics.InternalError
 import protocol Basics.FileSystem

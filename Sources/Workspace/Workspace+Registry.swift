@@ -12,28 +12,28 @@
 
 import _Concurrency
 
-import struct Basics.AbsolutePath
-import protocol Basics.FileSystem
-import struct Basics.InternalError
-import class Basics.ObservabilityScope
-import struct Basics.SourceControlURL
-import class Basics.ThreadSafeKeyValueStore
-import class PackageGraph.ResolvedPackagesStore
-import class PackageGraph.DependencyMirrors
+public import struct Basics.AbsolutePath
+public import protocol Basics.FileSystem
+public import struct Basics.InternalError
+public import class Basics.ObservabilityScope
+public import struct Basics.SourceControlURL
+public import class Basics.ThreadSafeKeyValueStore
+public import class PackageGraph.ResolvedPackagesStore
+public import class PackageGraph.DependencyMirrors
 import protocol PackageLoading.ManifestLoaderProtocol
-import protocol PackageModel.DependencyMapper
-import protocol PackageModel.IdentityResolver
-import class PackageModel.Manifest
-import enum PackageModel.PackageDependency
-import struct PackageModel.PackageIdentity
-import struct PackageModel.PackageReference
-import struct PackageModel.TargetDescription
-import struct PackageModel.ToolsVersion
+public import protocol PackageModel.DependencyMapper
+public import protocol PackageModel.IdentityResolver
+public import class PackageModel.Manifest
+public import enum PackageModel.PackageDependency
+public import struct PackageModel.PackageIdentity
+public import struct PackageModel.PackageReference
+public import struct PackageModel.TargetDescription
+public import struct PackageModel.ToolsVersion
 import class PackageRegistry.RegistryClient
 import struct TSCUtility.Version
 
 // Need to import the whole module to get access to `+` operator on `DispatchTimeInterval`
-import Dispatch
+public import Dispatch
 
 extension Workspace {
     // the goal of this code is to help align dependency identities across source control and registry origins

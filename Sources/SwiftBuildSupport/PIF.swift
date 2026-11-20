@@ -10,14 +10,14 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+public import Basics
 import Foundation
 import OrderedCollections
 import PackageModel
 
 import struct TSCBasic.ByteString
 
-import enum SwiftBuild.ProjectModel
+public import enum SwiftBuild.ProjectModel
 
 /// The Project Interchange Format (PIF) is a structured representation of the
 /// project model created by clients to send to SwiftBuild.

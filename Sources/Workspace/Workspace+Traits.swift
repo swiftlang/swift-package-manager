@@ -10,16 +10,16 @@
 //
 //===----------------------------------------------------------------------===//
 
-import class PackageModel.Manifest
-import struct PackageModel.PackageIdentity
-import struct PackageModel.PackageReference
-import enum PackageModel.ProductFilter
-import enum PackageModel.PackageDependency
-import struct PackageModel.EnabledTrait
-import struct PackageModel.EnabledTraits
-import enum PackageModel.TraitError
-import class Basics.ObservabilityScope
-import Basics
+public import class PackageModel.Manifest
+public import struct PackageModel.PackageIdentity
+public import struct PackageModel.PackageReference
+public import enum PackageModel.ProductFilter
+public import enum PackageModel.PackageDependency
+public import struct PackageModel.EnabledTrait
+public import struct PackageModel.EnabledTraits
+public import enum PackageModel.TraitError
+public import class Basics.ObservabilityScope
+public import Basics
 
 extension Workspace {
     /// Given a loaded `Manifest`, determine the traits that are enabled for it and

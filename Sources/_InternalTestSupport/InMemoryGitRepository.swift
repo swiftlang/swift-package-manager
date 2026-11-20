@@ -10,15 +10,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
-import Dispatch
+public import Basics
+public import Dispatch
 import Foundation
-import SourceControl
+public import SourceControl
 import struct PackageModel.CanonicalPackageURL
 
-import struct TSCBasic.ByteString
-import enum TSCBasic.FileMode
-import struct TSCBasic.FileSystemError
+public import struct TSCBasic.ByteString
+public import enum TSCBasic.FileMode
+public import struct TSCBasic.FileSystemError
 
 /// The error encountered during in memory git repository operations.
 public enum InMemoryGitRepositoryError: Swift.Error {

@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Foundation
+public import Foundation
 
 extension JSONDecoder {
     public func decode<T>(_ type: T.Type, from string: String) throws -> T where T: Decodable {

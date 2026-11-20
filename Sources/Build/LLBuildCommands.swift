@@ -12,7 +12,7 @@
 
 import Basics
 import Foundation
-import LLBuildManifest
+public import LLBuildManifest
 import SPMBuildCore
 import SPMLLBuild
 import PackageModel
