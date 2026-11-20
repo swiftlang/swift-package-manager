@@ -1253,9 +1253,12 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         // // User arguments (from -Xcxx) should follow generated arguments to allow user overrides
         // swiftCompilerFlags += buildParameters.flags.cxxCompilerFlags.rawFlags.asSwiftcCXXCompilerFlags()
 
-        // Filter out module cache path flags and override the build setting independently.
+        // Filter out module cache path flags and override the build settings independently. A module cache
+        // path given by the user applies to both regular builds and index builds (e.g. preparation for
+        // indexing), which use INDEX_MODULE_CACHE_DIR instead of MODULE_CACHE_DIR.
         if let moduleCachePath = Self.extractLastModuleCachePath(from: &swiftCompilerFlags) {
             settings["MODULE_CACHE_DIR"] = moduleCachePath
+            settings["INDEX_MODULE_CACHE_DIR"] = moduleCachePath
         }
 
         let compilerAndLinkerFlags = [
