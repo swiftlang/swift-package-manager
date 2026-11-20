@@ -11,19 +11,19 @@
 //===----------------------------------------------------------------------===//
 
 import _Concurrency
-import Basics
-import Dispatch
+public import Basics
+public import Dispatch
 import Foundation
-import PackageModel
+public import PackageModel
 import SourceControl
 
-import class TSCBasic.BufferedOutputByteStream
-import struct TSCBasic.ByteString
-import class Basics.AsyncProcess
-import struct Basics.AsyncProcessResult
+public import class TSCBasic.BufferedOutputByteStream
+public import struct TSCBasic.ByteString
+public import class Basics.AsyncProcess
+public import struct Basics.AsyncProcessResult
 
-import enum TSCUtility.Diagnostics
-import struct TSCUtility.Version
+public import enum TSCUtility.Diagnostics
+public import struct TSCUtility.Version
 
 #if os(Windows)
 import WinSDK

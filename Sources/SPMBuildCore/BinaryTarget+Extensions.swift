@@ -10,11 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+public import Basics
 import Foundation
 import PackageGraph
-import PackageModel
-import struct TSCBasic.StringError
+public import PackageModel
+public import struct TSCBasic.StringError
 
 /// Information about a library from a binary dependency.
 public struct LibraryInfo: Equatable {

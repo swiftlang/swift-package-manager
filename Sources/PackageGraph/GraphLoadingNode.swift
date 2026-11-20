@@ -12,7 +12,7 @@
 
 import Basics
 import PackageLoading
-import PackageModel
+public import PackageModel
 
 /// A node used while loading the packages in a resolved graph.
 ///

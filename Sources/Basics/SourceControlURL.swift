@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Foundation
+public import Foundation
 
 public struct SourceControlURL: Codable, Equatable, Hashable, Sendable {
     private let urlString: String

@@ -10,11 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+public import Basics
 import Foundation
-import OrderedCollections
-import PackageModel
-import TSCBasic
+public import OrderedCollections
+public import PackageModel
+public import TSCBasic
 
 /// A utility to compute the source/resource files of a target.
 public struct TargetSourcesBuilder {

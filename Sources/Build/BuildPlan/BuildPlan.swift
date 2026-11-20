@@ -11,15 +11,15 @@
 //===----------------------------------------------------------------------===//
 
 import _Concurrency
-import Basics
+public import Basics
 import Foundation
 import LLBuildManifest
 import OrderedCollections
-import PackageGraph
-import PackageLoading
+public import PackageGraph
+public import PackageLoading
 import PackageModel
-import SPMBuildCore
-import TSCBasic
+public import SPMBuildCore
+public import TSCBasic
 
 #if USE_IMPL_ONLY_IMPORTS
 @_implementationOnly import SwiftDriver

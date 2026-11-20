@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import struct PackageModel.BuildCacheConfiguration
+public import struct PackageModel.BuildCacheConfiguration
 
 extension BuildCacheConfiguration {
     /// Returns the build setting overrides corresponding to this cache configuration.

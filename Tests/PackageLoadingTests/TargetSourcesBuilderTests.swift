@@ -1289,7 +1289,7 @@ final class TargetSourcesBuilderTests: XCTestCase {
 }
 
 extension TargetSourcesBuilder {
-    public init(
+    init(
         packageIdentity: PackageIdentity,
         packageKind: PackageReference.Kind,
         packagePath: AbsolutePath,

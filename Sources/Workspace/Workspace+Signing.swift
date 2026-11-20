@@ -12,8 +12,8 @@
 
 import enum PackageFingerprint.FingerprintCheckingMode
 import struct PackageGraph.ModulesGraph
-import struct PackageModel.PackageIdentity
-import struct PackageModel.RegistryReleaseMetadata
+public import struct PackageModel.PackageIdentity
+public import struct PackageModel.RegistryReleaseMetadata
 import enum PackageSigning.SigningEntityCheckingMode
 
 extension FingerprintCheckingMode {

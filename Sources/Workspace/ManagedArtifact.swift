@@ -10,9 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+public import Basics
 import PackageGraph
-import PackageModel
+public import PackageModel
 import SourceControl
 import TSCBasic
 

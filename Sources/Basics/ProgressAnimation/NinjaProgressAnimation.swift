@@ -10,8 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-import class TSCBasic.TerminalController
-import protocol TSCBasic.WritableByteStream
+public import class TSCBasic.TerminalController
+public import protocol TSCBasic.WritableByteStream
 
 extension ProgressAnimation {
     /// A ninja-like progress animation that adapts to the provided output stream.

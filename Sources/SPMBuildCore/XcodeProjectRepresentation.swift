@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+public import Basics
 
 /// Represents a simplifed view of an Xcode project to a plugin.
 public struct XcodeProjectRepresentation: Equatable, Hashable {

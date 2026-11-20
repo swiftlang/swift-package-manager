@@ -10,8 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-import struct SPMBuildCore.BuildSystemProvider
-import enum PackageModel.BuildConfiguration
+public import struct SPMBuildCore.BuildSystemProvider
+public import enum PackageModel.BuildConfiguration
 
 public var SupportedBuildSystemOnAllPlatforms: [BuildSystemProvider.Kind] = BuildSystemProvider.Kind.allCases.filter { $0 != .xcode }
 

@@ -10,20 +10,20 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+public import Basics
 
 @_spi(SwiftPMInternal)
-import Build
+public import Build
 
-import _InternalTestSupport
-import struct PackageGraph.ModulesGraph
-import struct PackageGraph.ResolvedModule
-import struct PackageGraph.ResolvedProduct
-import PackageModel
-import SPMBuildCore
+public import _InternalTestSupport
+public import struct PackageGraph.ModulesGraph
+public import struct PackageGraph.ResolvedModule
+public import struct PackageGraph.ResolvedProduct
+public import PackageModel
+public import SPMBuildCore
 import TSCUtility
 import XCTest
-import Testing
+public import Testing
 
 public func mockBuildPlan(
     buildPath: AbsolutePath? = nil,

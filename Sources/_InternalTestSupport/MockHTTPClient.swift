@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+public import Basics
 
 extension HTTPClient {
     public static func mock(fileSystem: FileSystem) -> HTTPClient {

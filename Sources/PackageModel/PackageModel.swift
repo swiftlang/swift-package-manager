@@ -10,11 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+public import Basics
 import struct Foundation.URL
 
-import enum TSCUtility.PackageLocation
-import struct TSCUtility.Version
+public import enum TSCUtility.PackageLocation
+public import struct TSCUtility.Version
 
 /// The basic package representation.
 ///

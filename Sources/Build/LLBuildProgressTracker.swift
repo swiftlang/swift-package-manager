@@ -11,17 +11,17 @@
 //===----------------------------------------------------------------------===//
 
 @_spi(SwiftPMInternal)
-import Basics
+public import Basics
 import Dispatch
 import Foundation
 import LLBuildManifest
 import PackageModel
-import SPMBuildCore
+public import SPMBuildCore
 import SPMLLBuild
 
-import protocol TSCBasic.OutputByteStream
-import struct TSCBasic.RegEx
-import class TSCBasic.ThreadSafeOutputByteStream
+public import protocol TSCBasic.OutputByteStream
+public import struct TSCBasic.RegEx
+public import class TSCBasic.ThreadSafeOutputByteStream
 
 import class TSCUtility.IndexStoreAPI
 

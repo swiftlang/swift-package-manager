@@ -10,8 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
-import Testing
+public import Basics
+public import Testing
 import Foundation
 import Subprocess
 #if canImport(System)

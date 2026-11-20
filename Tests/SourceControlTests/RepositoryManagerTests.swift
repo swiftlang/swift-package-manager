@@ -777,7 +777,7 @@ final class RepositoryManagerTests: XCTestCase {
                 return false
             }
 
-            public func isValidDirectory(_ directory: AbsolutePath, for repository: RepositorySpecifier) throws -> Bool {
+            func isValidDirectory(_ directory: AbsolutePath, for repository: RepositorySpecifier) throws -> Bool {
                 fatalError("should not be called")
             }
 
@@ -852,7 +852,7 @@ final class RepositoryManagerTests: XCTestCase {
                 return true
             }
 
-            public func isValidDirectory(_ directory: AbsolutePath, for repository: RepositorySpecifier) throws -> Bool {
+            func isValidDirectory(_ directory: AbsolutePath, for repository: RepositorySpecifier) throws -> Bool {
                 assert(repository == self.repository)
                 // the directory is not valid
                 return false
@@ -888,7 +888,7 @@ final class RepositoryManagerTests: XCTestCase {
                 fatalError("unexpected API call")
             }
 
-            public func openFileView(tag: String) throws -> FileSystem {
+            func openFileView(tag: String) throws -> FileSystem {
                 fatalError("unexpected API call")
             }
         }
@@ -896,7 +896,7 @@ final class RepositoryManagerTests: XCTestCase {
 }
 
 extension RepositoryManager {
-    public convenience init(
+    convenience init(
         fileSystem: FileSystem,
         path: AbsolutePath,
         provider: RepositoryProvider,
@@ -1097,7 +1097,7 @@ fileprivate class DummyRepositoryManagerDelegate: RepositoryManager.Delegate, @u
 
     private var group = DispatchGroup()
 
-    public func prepare(fetchExpected: Bool, updateExpected: Bool) {
+    func prepare(fetchExpected: Bool, updateExpected: Bool) {
         if fetchExpected {
             self.group.enter() // will fetch
             self.group.enter() // did fetch
@@ -1108,7 +1108,7 @@ fileprivate class DummyRepositoryManagerDelegate: RepositoryManager.Delegate, @u
         }
     }
 
-    public func reset() {
+    func reset() {
         self.group = DispatchGroup()
         self._willFetch = .init()
         self._didFetch = .init()
@@ -1116,7 +1116,7 @@ fileprivate class DummyRepositoryManagerDelegate: RepositoryManager.Delegate, @u
         self._didUpdate = .init()
     }
 
-    public func wait(timeout: DispatchTime) async throws {
+    func wait(timeout: DispatchTime) async throws {
         try await withCheckedThrowingContinuation { continuation in
             self.group.notify(queue: DispatchQueue.sharedConcurrent) {
                 continuation.resume()
@@ -1127,7 +1127,7 @@ fileprivate class DummyRepositoryManagerDelegate: RepositoryManager.Delegate, @u
     /// Releases one previously-prepared slot that won't be filled by an
     /// actual delegate event. Used by tests where the upper bound on event
     /// counts is known but the exact count is timing-dependent.
-    public func drainUnusedSlot() {
+    func drainUnusedSlot() {
         self.group.leave()
     }
 
@@ -1202,7 +1202,7 @@ fileprivate class DummyRepository: Repository {
         fatalError("unexpected API call")
     }
 
-    public func openFileView(tag: String) throws -> FileSystem {
+    func openFileView(tag: String) throws -> FileSystem {
         fatalError("unexpected API call")
     }
 }

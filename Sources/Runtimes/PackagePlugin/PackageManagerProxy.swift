@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Foundation
+public import Foundation
 
 /// Provides specialized information and services from the Swift Package Manager
 /// or an IDE that supports Swift packages.

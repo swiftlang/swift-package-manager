@@ -9,8 +9,8 @@
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-import SPMBuildCore
-import XCTest
+public import SPMBuildCore
+public import XCTest
 
 open class BuildSystemProviderTestCase: XCTestCase {
     open var buildSystemProvider: BuildSystemProvider.Kind {

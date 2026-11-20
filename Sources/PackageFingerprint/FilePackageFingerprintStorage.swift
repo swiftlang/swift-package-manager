@@ -10,13 +10,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+public import Basics
 import Dispatch
 import Foundation
-import PackageModel
-import TSCBasic
+public import PackageModel
+public import TSCBasic
 
-import struct TSCUtility.Version
+public import struct TSCUtility.Version
 
 public struct FilePackageFingerprintStorage: PackageFingerprintStorage {
     let fileSystem: FileSystem

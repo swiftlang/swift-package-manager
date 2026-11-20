@@ -10,12 +10,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+public import Basics
 import Foundation
 import TSCBasic
 import TSCUtility
 
-import class Basics.AsyncProcess
+public import class Basics.AsyncProcess
 
 public protocol AuxiliaryFileType {
     static var name: String { get }

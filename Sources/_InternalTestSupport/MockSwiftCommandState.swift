@@ -10,17 +10,17 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+package import Basics
 import Commands
-import CoreCommands
+package import CoreCommands
 
 import PackageModel
 
-import class TSCBasic.BufferedOutputByteStream
-import protocol TSCBasic.OutputByteStream
-import enum TSCBasic.SystemError
-import var TSCBasic.stderrStream
-import enum TSCBasic.JSON
+package import class TSCBasic.BufferedOutputByteStream
+package import protocol TSCBasic.OutputByteStream
+package import enum TSCBasic.SystemError
+package import var TSCBasic.stderrStream
+package import enum TSCBasic.JSON
 
 extension SwiftCommandState {
     package static func makeMockState(

@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Testing
+public import Testing
 
 extension Trait where Self == Testing.Bug {
     public static func SWBINTTODO(_ comment: Comment) -> Self {

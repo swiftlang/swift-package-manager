@@ -10,13 +10,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+public import Basics
 
 import struct PackageGraph.ModulesGraph
 import struct PackageGraph.ResolvedModule
 import struct PackageGraph.ResolvedProduct
-import PackageModel
-import SPMBuildCore
+public import PackageModel
+public import SPMBuildCore
 import TSCUtility
 
 public struct MockToolchain: PackageModel.Toolchain {
