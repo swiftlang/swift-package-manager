@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+public import Basics
 
 /// Toolchain configuration required for evaluation of swift code such as the manifests or plugins
 ///

@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import struct TSCBasic.RelativePath
+public import struct TSCBasic.RelativePath
 
 // public for transition
 public typealias TSCRelativePath = TSCBasic.RelativePath

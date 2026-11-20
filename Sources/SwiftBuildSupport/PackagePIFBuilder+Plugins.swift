@@ -12,11 +12,11 @@
 
 import Foundation
 
-import protocol TSCBasic.FileSystem
+public import protocol TSCBasic.FileSystem
 
-import enum Basics.Sandbox
-import struct Basics.AbsolutePath
-import struct Basics.SourceControlURL
+public import enum Basics.Sandbox
+public import struct Basics.AbsolutePath
+public import struct Basics.SourceControlURL
 
 import enum SwiftBuild.ProjectModel
 

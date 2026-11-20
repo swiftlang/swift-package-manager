@@ -10,13 +10,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-import ArgumentParser
+public import ArgumentParser
 import Basics
 
 import Build
 
 @_spi(SwiftPMInternal)
-import CoreCommands
+public import CoreCommands
 
 import PackageGraph
 

@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+public import Basics
 
 /// A grouping of related source files.
 public struct Sources: Codable {

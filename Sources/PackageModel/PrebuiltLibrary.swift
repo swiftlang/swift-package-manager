@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Foundation
-import Basics
+public import Basics
 
 /// A structure representing a prebuilt library to be used instead of a source dependency
 public struct PrebuiltLibrary {

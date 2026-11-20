@@ -10,42 +10,42 @@
 //
 //===----------------------------------------------------------------------===//
 
-import ArgumentParser
+public import ArgumentParser
 
-import struct Basics.AbsolutePath
-import enum Basics.ConfigurableEnvVar
-import var Basics.localFileSystem
-import enum Basics.TestingLibrary
-import struct Basics.Triple
-import struct Basics.Environment
+public import struct Basics.AbsolutePath
+public import enum Basics.ConfigurableEnvVar
+public import var Basics.localFileSystem
+public import enum Basics.TestingLibrary
+public import struct Basics.Triple
+public import struct Basics.Environment
 
-import struct Foundation.URL
+public import struct Foundation.URL
 
-import enum PackageModel.BuildConfiguration
-import struct PackageModel.BuildFlags
-import struct PackageModel.BuildCacheConfiguration
-import struct PackageModel.EnabledSanitizers
-import class PackageModel.Manifest
-import struct PackageModel.PackageIdentity
-import enum PackageModel.Sanitizer
-@_spi(SwiftPMInternal) import struct PackageModel.SwiftSDK
+public import enum PackageModel.BuildConfiguration
+public import struct PackageModel.BuildFlags
+public import struct PackageModel.BuildCacheConfiguration
+public import struct PackageModel.EnabledSanitizers
+public import class PackageModel.Manifest
+public import struct PackageModel.PackageIdentity
+public import enum PackageModel.Sanitizer
+@_spi(SwiftPMInternal) public import struct PackageModel.SwiftSDK
 
-import enum PackageModel.TraitConfiguration
+public import enum PackageModel.TraitConfiguration
 
-import enum SBOMModel.Filter
-import enum SBOMModel.Spec
-import enum SBOMModel.SBOMCommandError
+package import enum SBOMModel.Filter
+package import enum SBOMModel.Spec
+package import enum SBOMModel.SBOMCommandError
 
-import struct SPMBuildCore.BuildParameters
-import struct SPMBuildCore.BuildSystemProvider
+public import struct SPMBuildCore.BuildParameters
+public import struct SPMBuildCore.BuildSystemProvider
 
 import struct TSCBasic.StringError
 
 import struct TSCUtility.Version
 
-import Foundation
-import class Workspace.Workspace
-import struct Workspace.WorkspaceConfiguration
+public import Foundation
+public import class Workspace.Workspace
+public import struct Workspace.WorkspaceConfiguration
 
 public struct GlobalOptions: ParsableArguments {
     public init() {}

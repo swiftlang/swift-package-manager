@@ -10,12 +10,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+public import Basics
 import Foundation
-import PackageModel
+public import PackageModel
 
-import struct TSCBasic.ByteString
-import struct TSCBasic.RegEx
+public import struct TSCBasic.ByteString
+public import struct TSCBasic.RegEx
 
 import struct TSCUtility.Version
 

@@ -10,16 +10,16 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
-import Foundation
+public import Basics
+public import Foundation
 import PackageLoading
 import PackageGraph
-import PackageModel
+public import PackageModel
 import SPMBuildCore
 
-import struct TSCBasic.ByteString
-import protocol TSCBasic.HashAlgorithm
-import struct TSCBasic.SHA256
+public import struct TSCBasic.ByteString
+public import protocol TSCBasic.HashAlgorithm
+public import struct TSCBasic.SHA256
 import enum TSCUtility.Diagnostics
 
 extension Workspace {

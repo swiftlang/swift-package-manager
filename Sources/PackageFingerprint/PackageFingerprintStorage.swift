@@ -10,12 +10,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+public import Basics
 import Dispatch
-import PackageModel
+public import PackageModel
 import TSCBasic
 
-import struct TSCUtility.Version
+public import struct TSCUtility.Version
 
 public protocol PackageFingerprintStorage {
     func get(

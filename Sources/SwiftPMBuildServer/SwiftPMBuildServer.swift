@@ -10,19 +10,19 @@
 //
 //===----------------------------------------------------------------------===//
 #if canImport(LanguageServerProtocolTransport)
-import Basics
+public import Basics
 import SwiftBuild
 import Foundation
 import SPMBuildCore
-import SwiftBuildSupport
+public import SwiftBuildSupport
 import SwiftBuild
 import SWBBuildService
-import Workspace
+public import Workspace
 import BuildServerProtocol
-import LanguageServerProtocol
-import LanguageServerProtocolTransport
+public import LanguageServerProtocol
+public import LanguageServerProtocolTransport
 import PackageModel
-import ToolsProtocolsSwiftExtensions
+public import ToolsProtocolsSwiftExtensions
 
 // Remove these extensions once they've been added to swift-tools-protocols
 package extension Connection {

@@ -11,25 +11,25 @@
 //===----------------------------------------------------------------------===//
 
 import RegexBuilder
-import ArgumentParser
+public import ArgumentParser
 
 @_spi(SwiftPMInternal)
-import Basics
-import struct Basics.Triple
+package import Basics
+package import struct Basics.Triple
 
 import _Concurrency
 
 @_spi(SwiftPMInternal)
-import CoreCommands
+public import CoreCommands
 
 import Dispatch
-import Foundation
+public import Foundation
 import PackageGraph
 
 @_spi(SwiftPMInternal)
 import PackageModel
 
-import SPMBuildCore
+public import SPMBuildCore
 import TSCUtility
 
 import func TSCLibc.exit

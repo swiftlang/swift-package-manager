@@ -10,8 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
-import PackageGraph
+public import Basics
+package import PackageGraph
 import PackageLoading
 import PackageModel
 

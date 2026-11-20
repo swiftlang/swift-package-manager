@@ -11,11 +11,11 @@
 //===----------------------------------------------------------------------===//
 
 import Foundation
-import Basics
+public import Basics
 
 import struct TSCBasic.CodableRange
 
-import struct TSCUtility.Version
+public import struct TSCUtility.Version
 
 /// Represents a package dependency.
 public enum PackageDependency: Equatable, Hashable, Sendable {

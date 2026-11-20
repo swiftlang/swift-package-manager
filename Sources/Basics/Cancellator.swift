@@ -10,8 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Dispatch
-import Foundation
+public import Dispatch
+public import Foundation
 import Synchronization
 import class TSCBasic.Thread
 #if canImport(WinSDK)

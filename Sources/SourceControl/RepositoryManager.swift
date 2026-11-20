@@ -10,13 +10,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+public import Basics
 import _Concurrency
-import Dispatch
+public import Dispatch
 import Foundation
-import PackageModel
+public import PackageModel
 import Synchronization
-import TSCBasic
+public import TSCBasic
 
 /// Manages a collection of bare repositories.
 public class RepositoryManager: Cancellable {

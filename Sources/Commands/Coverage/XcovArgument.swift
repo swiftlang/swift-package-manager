@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import ArgumentParser
-import struct Basics.AbsolutePath
+package import struct Basics.AbsolutePath
 
 // MARK: - XcovArgument
 

@@ -12,39 +12,39 @@
 
 import _Concurrency
 
-import struct Basics.AbsolutePath
-import func Basics.depthFirstSearch
-import struct Basics.Diagnostic
-import struct Basics.InternalError
-import class Basics.ObservabilityScope
-import struct Basics.SwiftVersion
-import class Basics.ThreadSafeKeyValueStore
+public import struct Basics.AbsolutePath
+public import func Basics.depthFirstSearch
+public import struct Basics.Diagnostic
+public import struct Basics.InternalError
+public import class Basics.ObservabilityScope
+public import struct Basics.SwiftVersion
+public import class Basics.ThreadSafeKeyValueStore
 import class Dispatch.DispatchGroup
 import struct Dispatch.DispatchTime
-import struct OrderedCollections.OrderedDictionary
-import struct OrderedCollections.OrderedSet
-import protocol PackageGraph.CustomPackageContainer
-import struct PackageGraph.GraphLoadingNode
-import struct PackageGraph.PackageContainerConstraint
-import struct PackageGraph.PackageGraphRoot
+public import struct OrderedCollections.OrderedDictionary
+public import struct OrderedCollections.OrderedSet
+public import protocol PackageGraph.CustomPackageContainer
+public import struct PackageGraph.GraphLoadingNode
+public import struct PackageGraph.PackageContainerConstraint
+public import struct PackageGraph.PackageGraphRoot
 import class PackageLoading.ManifestLoader
 import struct PackageLoading.ManifestValidator
 import struct PackageLoading.ToolsVersionParser
-import struct PackageModel.EnabledTrait
-import struct PackageModel.EnabledTraits
-import enum PackageModel.TraitError
-import class PackageModel.Manifest
-import struct PackageModel.PackageIdentity
-import struct PackageModel.PackageReference
-import enum PackageModel.ProductFilter
-import struct PackageModel.ToolsVersion
-import enum PackageModel.TraitConfiguration
-import protocol TSCBasic.FileSystem
-import func TSCBasic.findCycle
-import struct TSCBasic.KeyedPair
-import struct TSCBasic.StringError
-import func TSCBasic.topologicalSort
-import func TSCBasic.transitiveClosure
+public import struct PackageModel.EnabledTrait
+public import struct PackageModel.EnabledTraits
+public import enum PackageModel.TraitError
+public import class PackageModel.Manifest
+public import struct PackageModel.PackageIdentity
+public import struct PackageModel.PackageReference
+public import enum PackageModel.ProductFilter
+public import struct PackageModel.ToolsVersion
+public import enum PackageModel.TraitConfiguration
+public import protocol TSCBasic.FileSystem
+public import func TSCBasic.findCycle
+public import struct TSCBasic.KeyedPair
+public import struct TSCBasic.StringError
+public import func TSCBasic.topologicalSort
+public import func TSCBasic.transitiveClosure
 import enum TSCUtility.Diagnostics
 import struct TSCUtility.Version
 

@@ -10,20 +10,20 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
-import CoreCommands
-import Dispatch
-import class Foundation.ByteCountFormatter
-import struct Foundation.URL
+package import Basics
+public import CoreCommands
+package import Dispatch
+package import class Foundation.ByteCountFormatter
+package import struct Foundation.URL
 import OrderedCollections
 import PackageGraph
-import PackageModel
+package import PackageModel
 import SPMBuildCore
 import Synchronization
-import Workspace
+package import Workspace
 
 import protocol TSCBasic.OutputByteStream
-import struct TSCUtility.Version
+package import struct TSCUtility.Version
 
 package final class CommandWorkspaceDelegate: WorkspaceDelegate {
     private struct DownloadProgress {

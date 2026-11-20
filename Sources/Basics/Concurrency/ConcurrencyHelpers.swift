@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import _Concurrency
-import Dispatch
+public import Dispatch
 import class Foundation.NSLock
 import class Foundation.ProcessInfo
 import class Foundation.Thread

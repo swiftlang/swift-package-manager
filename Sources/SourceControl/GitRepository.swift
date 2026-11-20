@@ -11,24 +11,24 @@
 //===----------------------------------------------------------------------===//
 
 @_spi(ProcessEnvironmentBlockShim)
-import Basics
-import Dispatch
+public import Basics
+public import Dispatch
 import class Foundation.NSLock
 import class Foundation.ProcessInfo
 
 import struct PackageModel.CanonicalPackageURL
 
-import struct TSCBasic.ByteString
-import protocol TSCBasic.DiagnosticLocation
-import struct TSCBasic.FileInfo
-import enum TSCBasic.FileMode
-import struct TSCBasic.FileSystemError
-import class Basics.AsyncProcess
-import struct Basics.AsyncProcessResult
-import struct TSCBasic.RegEx
+public import struct TSCBasic.ByteString
+public import protocol TSCBasic.DiagnosticLocation
+public import struct TSCBasic.FileInfo
+public import enum TSCBasic.FileMode
+public import struct TSCBasic.FileSystemError
+public import class Basics.AsyncProcess
+public import struct Basics.AsyncProcessResult
+public import struct TSCBasic.RegEx
 
-import protocol TSCUtility.DiagnosticLocationProviding
-import enum TSCUtility.Git
+public import protocol TSCUtility.DiagnosticLocationProviding
+public import enum TSCUtility.Git
 
 // MARK: - GitShellHelper
 
