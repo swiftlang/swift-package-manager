@@ -10,14 +10,14 @@
 //
 //===----------------------------------------------------------------------===//
 
-import struct Foundation.URL
+public import struct Foundation.URL
 
-import Basics
+public import Basics
 import _Concurrency
 import Dispatch
-import PackageModel
+public import PackageModel
 
-import struct TSCUtility.Version
+public import struct TSCUtility.Version
 
 public protocol PackageSigningEntityStorage {
     /// For a given package, return the signing entities and the package versions that each of them signed.

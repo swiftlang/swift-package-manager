@@ -9,7 +9,7 @@
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-import Foundation
+public import Foundation
 
 extension ProcessInfo {
     public static func isHostAmazonLinux2(_ content: String? = nil) -> Bool {

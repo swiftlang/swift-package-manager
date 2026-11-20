@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+public import Basics
 
 public struct BuildSystemCommand: Hashable {
     public let name: String

@@ -10,9 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-import ArgumentParser
+public import ArgumentParser
 import Basics
-import CoreCommands
+public import CoreCommands
 import Foundation
 import PackageGraph
 import PackageModel

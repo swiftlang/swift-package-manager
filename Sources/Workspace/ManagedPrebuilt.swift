@@ -10,11 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-import struct TSCUtility.Version
+public import struct TSCUtility.Version
 import struct TSCBasic.StringError
 
-import Basics
-import PackageModel
+public import Basics
+public import PackageModel
 
 extension Workspace {
     /// A downloaded prebuilt managed by the workspace.

@@ -10,13 +10,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+public import Basics
 import Dispatch
-import PackageGraph
-import PackageModel
+public import PackageGraph
+public import PackageModel
 import SourceControl
 
-import struct TSCUtility.Version
+public import struct TSCUtility.Version
 
 public class MockPackageContainer: CustomPackageContainer {
     public typealias Constraint = PackageContainerConstraint

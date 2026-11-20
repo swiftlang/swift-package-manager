@@ -14,9 +14,9 @@ import _Concurrency
 import Dispatch
 import struct Foundation.Data
 
-import Basics
+public import Basics
 import PackageLoading
-import PackageModel
+public import PackageModel
 import PackageSigning
 import TSCBasic
 

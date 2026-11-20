@@ -26,7 +26,7 @@ import Workspace
 import Testing
 
 extension Trait where Self == Testing.ConditionTrait {
-    public static var requiresAPIDigester: Self {
+    static var requiresAPIDigester: Self {
         enabled("This test requires a toolchain with swift-api-digester") {
             (try? UserToolchain.default.getSwiftAPIDigester()) != nil && ProcessInfo.hostOperatingSystem != .windows
         }

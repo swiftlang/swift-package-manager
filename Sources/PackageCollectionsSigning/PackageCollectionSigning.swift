@@ -11,10 +11,10 @@
 //===----------------------------------------------------------------------===//
 
 
-import Basics
+public import Basics
 import Dispatch
-import Foundation
-import PackageCollectionsModel
+public import Foundation
+public import PackageCollectionsModel
 import SwiftASN1
 
 #if USE_IMPL_ONLY_IMPORTS

@@ -10,20 +10,20 @@
 //
 //===----------------------------------------------------------------------===//
 
-@_spi(SwiftPMInternal) import Basics
+@_spi(SwiftPMInternal) public import Basics
 import Foundation
-import PackageGraph
-import PackageLoading
-import PackageModel
+public import PackageGraph
+public import PackageLoading
+public import PackageModel
 import TSCUtility
 
 @_spi(SwiftPMInternal)
-import SPMBuildCore
+public import SPMBuildCore
 
-import func TSCBasic.topologicalSort
-import func TSCBasic.transitiveClosure
-import struct TSCBasic.OrderedSet
-import var TSCBasic.stdoutStream
+public import func TSCBasic.topologicalSort
+public import func TSCBasic.transitiveClosure
+public import struct TSCBasic.OrderedSet
+public import var TSCBasic.stdoutStream
 
 import enum SwiftBuild.ProjectModel
 

@@ -1211,6 +1211,15 @@ if ProcessInfo.processInfo.environment["ENABLE_APPLE_PRODUCT_TYPES"] == "1" {
     }
 }
 
+/// Make imports `internal` by default (with explicit access levels where a wider one is needed) in every target that
+/// contains Swift sources.
+for target in package.targets.filter({ $0.type == .regular || $0.type == .executable || $0.type == .test }) {
+    target.swiftSettings = (target.swiftSettings ?? []) + [
+        .enableExperimentalFeature("AccessLevelOnImport"),
+        .enableExperimentalFeature("InternalImportsByDefault"),
+    ]
+}
+
 if !shouldUseSwiftBuildFramework {
 
     let swiftbuildsupport: Target = package.targets.first(where: { ["SwiftBuildSupport", "SwiftPMBuildServer", "SwiftPMBuildServerTests"].contains($0.name) } )!

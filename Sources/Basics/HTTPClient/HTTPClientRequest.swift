@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Foundation
+public import Foundation
 
 public struct HTTPClientRequest: Sendable {
     public let kind: Kind

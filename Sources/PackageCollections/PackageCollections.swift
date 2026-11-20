@@ -11,11 +11,11 @@
 //===----------------------------------------------------------------------===//
 
 import _Concurrency
-import Basics
-import PackageModel
+public import Basics
+public import PackageModel
 import Foundation
 
-import protocol TSCBasic.Closable
+public import protocol TSCBasic.Closable
 
 // TODO: is there a better name? this conflicts with the module name which is okay in this case but not ideal in Swift
 public struct PackageCollections: PackageCollectionsProtocol, Closable {

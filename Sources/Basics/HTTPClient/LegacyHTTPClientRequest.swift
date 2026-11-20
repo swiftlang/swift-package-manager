@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Foundation
+public import Foundation
 
 public struct LegacyHTTPClientRequest: Sendable {
     public let kind: Kind

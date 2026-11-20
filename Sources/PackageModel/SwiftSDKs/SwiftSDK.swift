@@ -10,11 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
-import Foundation
-import TSCBasic
+public import Basics
+public import Foundation
+public import TSCBasic
 
-import class Basics.AsyncProcess
+public import class Basics.AsyncProcess
 
 import struct TSCUtility.Version
 

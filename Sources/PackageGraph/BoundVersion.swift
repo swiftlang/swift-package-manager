@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import struct TSCUtility.Version
+public import struct TSCUtility.Version
 
 /// A bound version for a package within an assignment.
 public enum BoundVersion: Equatable, Hashable {

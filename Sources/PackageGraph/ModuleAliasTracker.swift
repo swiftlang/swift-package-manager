@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import PackageModel
-import Basics
+public import Basics
 
 import func TSCBasic.transitiveClosure
 

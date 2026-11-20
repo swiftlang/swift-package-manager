@@ -10,18 +10,18 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+public import Basics
 import Dispatch
-import PackageCollections
-import PackageModel
-import PackageRegistry
-import PackageSigning
+public import PackageCollections
+public import PackageModel
+public import PackageRegistry
+public import PackageSigning
 import SourceControl
 
-import struct Foundation.Date
-import struct Foundation.URL
+public import struct Foundation.Date
+public import struct Foundation.URL
 
-import struct TSCUtility.Version
+public import struct TSCUtility.Version
 
 public struct Package {
     public enum Source {

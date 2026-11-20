@@ -10,12 +10,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+public import Basics
 import Foundation
 import TSCUtility
-import enum TSCBasic.JSON
+public import enum TSCBasic.JSON
 
-import class Basics.AsyncProcess
+public import class Basics.AsyncProcess
 
 #if os(Windows)
 private let hostExecutableSuffix = ".exe"

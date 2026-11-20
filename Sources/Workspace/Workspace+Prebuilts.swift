@@ -10,10 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
-import Foundation
+public import Basics
+public import Foundation
 import OrderedCollections
-import PackageModel
+public import PackageModel
 
 import protocol TSCBasic.HashAlgorithm
 import struct TSCBasic.SHA256

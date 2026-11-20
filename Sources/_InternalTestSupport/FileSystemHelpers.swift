@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 import Foundation
-import Basics
+public import Basics
 
 func getFiles(atPath path: String, matchingExtension fileExtension: String) -> [URL] {
     let fileManager = FileManager.default

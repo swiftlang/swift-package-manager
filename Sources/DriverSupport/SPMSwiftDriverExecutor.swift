@@ -11,12 +11,12 @@
 //===----------------------------------------------------------------------===//
 
 @_spi(SwiftPMInternal)
-import Basics
+public import Basics
 
-import SwiftDriver
+public import SwiftDriver
 
-import class TSCBasic.Process
-import struct TSCBasic.ProcessResult
+public import class TSCBasic.Process
+public import struct TSCBasic.ProcessResult
 
 public final class SPMSwiftDriverExecutor: DriverExecutor {
     

@@ -10,12 +10,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
-import PackageModel
+public import Basics
+public import PackageModel
 import SPMBuildCore
 import TSCUtility
 
-import protocol TSCBasic.OutputByteStream
+public import protocol TSCBasic.OutputByteStream
 
 /// Create an initial template package.
 public final class InitPackage {

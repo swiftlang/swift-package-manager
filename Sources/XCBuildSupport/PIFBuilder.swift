@@ -10,18 +10,18 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+public import Basics
 import Foundation
-import PackageGraph
+public import PackageGraph
 import PackageLoading
-import PackageModel
+public import PackageModel
 import TSCUtility
 
 @_spi(SwiftPMInternal)
-import SPMBuildCore
+public import SPMBuildCore
 
-import func TSCBasic.memoize
-import func TSCBasic.topologicalSort
+public import func TSCBasic.memoize
+public import func TSCBasic.topologicalSort
 
 /// The parameters required by `PIFBuilder`.
 struct PIFBuilderParameters {

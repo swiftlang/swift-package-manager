@@ -13,8 +13,8 @@
 import PackageModel
 import TSCUtility
 
-import struct PackageGraph.ResolvedPackage
-import struct PackageGraph.ResolvedModule
+public import struct PackageGraph.ResolvedPackage
+public import struct PackageGraph.ResolvedModule
 
 extension ResolvedPackage {
     @_spi(SwiftPMInternal)

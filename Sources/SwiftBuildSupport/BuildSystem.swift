@@ -12,7 +12,7 @@
 
 import SPMBuildCore
 import PackageGraph
-import PackageModel
+public import PackageModel
 
 extension BuildConfiguration {
     public var swiftbuildName: String {

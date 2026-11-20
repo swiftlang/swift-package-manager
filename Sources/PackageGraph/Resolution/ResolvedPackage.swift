@@ -10,8 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
-import PackageModel
+public import Basics
+public import PackageModel
 
 /// A fully resolved package. Contains resolved modules, products and dependencies of the package.
 public struct ResolvedPackage {

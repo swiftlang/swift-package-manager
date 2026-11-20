@@ -10,10 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
-import Testing
+public import Basics
+public import Testing
 import Foundation
-import class TSCBasic.BufferedOutputByteStream
+public import class TSCBasic.BufferedOutputByteStream
 import Subprocess
 #if canImport(System)
 import System

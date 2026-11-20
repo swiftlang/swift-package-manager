@@ -10,11 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-import struct Basics.IdentifiableSet
-import struct PackageModel.MinimumDeploymentTarget
-import struct PackageModel.Platform
-import struct PackageModel.PlatformVersion
-import struct PackageModel.SupportedPlatform
+public import struct Basics.IdentifiableSet
+public import struct PackageModel.MinimumDeploymentTarget
+public import struct PackageModel.Platform
+public import struct PackageModel.PlatformVersion
+public import struct PackageModel.SupportedPlatform
 
 /// Merging two sets of supported platforms, preferring the max constraint
 func merge(into partial: inout [SupportedPlatform], platforms: [SupportedPlatform]) {

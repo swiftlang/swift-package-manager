@@ -11,25 +11,25 @@
 //===----------------------------------------------------------------------===//
 
 import class Foundation.ProcessInfo
-import Basics
+public import Basics
 #if os(macOS)
 import class Foundation.Bundle
 #endif
-import SPMBuildCore
-import enum PackageModel.BuildConfiguration
+public import SPMBuildCore
+public import enum PackageModel.BuildConfiguration
 import TSCTestSupport
 import XCTest
 import Testing
 
-import struct Basics.AsyncProcessResult
-import Subprocess
+public import struct Basics.AsyncProcessResult
+public import Subprocess
 #if canImport(System)
 import System
 #else
 import SystemPackage
 #endif
 
-import struct TSCUtility.Version
+public import struct TSCUtility.Version
 
 @_exported import func TSCTestSupport.XCTAssertMatch
 @_exported import func TSCTestSupport.XCTAssertNoMatch

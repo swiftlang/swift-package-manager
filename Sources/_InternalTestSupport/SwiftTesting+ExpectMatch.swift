@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Testing
+public import Testing
 
 import TSCTestSupport
 

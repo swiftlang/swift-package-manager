@@ -12,19 +12,19 @@
 
 import _Concurrency
 @_spi(SwiftPMInternal)
-import Basics
-import Foundation
-import LLBuildManifest
-import PackageGraph
-import PackageLoading
-import PackageModel
-import SPMBuildCore
+public import Basics
+public import Foundation
+public import LLBuildManifest
+public import PackageGraph
+public import PackageLoading
+package import PackageModel
+public import SPMBuildCore
 import SPMLLBuild
 
-import class Basics.AsyncProcess
-import class TSCBasic.DiagnosticsEngine
-import protocol TSCBasic.OutputByteStream
-import struct TSCBasic.RegEx
+public import class Basics.AsyncProcess
+public import class TSCBasic.DiagnosticsEngine
+public import protocol TSCBasic.OutputByteStream
+public import struct TSCBasic.RegEx
 
 import enum TSCUtility.Diagnostics
 

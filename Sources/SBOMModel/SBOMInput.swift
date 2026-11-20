@@ -11,12 +11,12 @@
 //===----------------------------------------------------------------------===//
 
 import ArgumentParser
-import Basics
-import PackageGraph
+package import Basics
+package import PackageGraph
 import PackageModel
 
-import protocol TSCBasic.OutputByteStream
-import var TSCBasic.stdoutStream
+package import protocol TSCBasic.OutputByteStream
+package import var TSCBasic.stdoutStream
 
 package enum Filter: String, Codable, Equatable, CaseIterable {
     case all

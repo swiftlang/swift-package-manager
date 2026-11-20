@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import class Foundation.NSLock
+public import class Foundation.NSLock
 
 extension NSLock {
     /// Execute the given block while holding the lock.

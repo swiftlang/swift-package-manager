@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import ArgumentParser
-import Basics
+public import Basics
 import CoreCommands
 import PackageGraph
 import PackageModel

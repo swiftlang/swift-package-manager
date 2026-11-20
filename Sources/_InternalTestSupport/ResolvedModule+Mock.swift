@@ -10,8 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-import PackageGraph
-import PackageModel
+public import PackageGraph
+public import PackageModel
 
 extension ResolvedModule {
     public static func mock(

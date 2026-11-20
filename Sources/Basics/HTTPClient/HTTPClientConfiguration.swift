@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Foundation
+public import Foundation
 #if canImport(FoundationNetworking)
 import FoundationNetworking
 #endif

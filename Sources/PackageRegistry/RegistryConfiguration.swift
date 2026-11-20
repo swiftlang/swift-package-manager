@@ -11,8 +11,8 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-import Foundation
-import PackageModel
+public import Foundation
+public import PackageModel
 
 public struct RegistryConfiguration: Hashable {
     static func authenticationStorageKey(for registryURL: URL) throws -> String {

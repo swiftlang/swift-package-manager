@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-import struct Foundation.URL
+public import struct Foundation.URL
 
 public struct Registry: Hashable, CustomStringConvertible, Sendable {
     public var url: URL
