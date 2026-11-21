@@ -7229,6 +7229,43 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    func testLocalArtifactFileWithDirectoryExtension() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(
+                            name: "A1",
+                            type: .binary,
+                            path: "ArtifactBundles/A1.artifactbundle"
+                        ),
+                    ]
+                ),
+            ]
+        )
+
+        let rootPath = try workspace.pathToRoot(withName: "Root")
+        let artifactBundlesPath = rootPath.appending("ArtifactBundles")
+        try fs.createDirectory(artifactBundlesPath, recursive: true)
+        let artifactPath = artifactBundlesPath.appending("A1.artifactbundle")
+        try fs.writeFileContents(artifactPath, bytes: ByteString([0xA1]))
+
+        await workspace.checkPackageGraphFailure(roots: ["Root"]) { diagnostics in
+            testDiagnostics(diagnostics) { result in
+                result.check(
+                    diagnostic: "local binary target 'A1' at '\(artifactPath)' is a file, but '.artifactbundle' is only supported for directories; use a '.zip' extension for local binary archives.",
+                    severity: .error
+                )
+            }
+        }
+    }
+
     func testLocalArtifactDoesNotExist() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
