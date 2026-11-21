@@ -675,6 +675,7 @@ struct SwiftBuildSystemTests {
 
                 let overrides = buildRequest.parameters.overrides.synthesized?.table
                 #expect(overrides?["MODULE_CACHE_DIR"] == moduleCachePath)
+                #expect(overrides?["INDEX_MODULE_CACHE_DIR"] == moduleCachePath)
                 let otherSwiftFlags = try #require(overrides?["OTHER_SWIFT_FLAGS"])
                 #expect(!otherSwiftFlags.contains("-module-cache-path"))
                 #expect(otherSwiftFlags.contains("-DFoo"))
