@@ -31,7 +31,7 @@ public struct Snippet {
     }
 
     public init(parsing file: AbsolutePath) throws {
-        let source = try String(contentsOf: file.asURL)
+        let source = try String(contentsOf: file.asURL, encoding: .utf8)
         self.init(parsing: source, path: file)
     }
 }
