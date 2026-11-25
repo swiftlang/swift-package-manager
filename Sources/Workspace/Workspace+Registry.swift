@@ -172,7 +172,7 @@ extension Workspace {
             for dependency in manifest.dependencies {
                 var modifiedDependency = dependency
                 if let registryIdentity = transformations[dependency] {
-                    guard case .sourceControl(let settings) = dependency, case .remote(let scmURL) = settings.location else {
+                    guard case .sourceControl(let settings) = dependency, case .remote = settings.location else {
                         // an implementation mistake
                         throw InternalError("unexpected non-source-control dependency: \(dependency)")
                     }

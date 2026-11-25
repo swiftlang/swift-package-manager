@@ -129,7 +129,7 @@ package final class TraceEventsWriter {
     package init(path: Basics.AbsolutePath) throws {
         let url = URL(fileURLWithPath: path.pathString)
         if !FileManager.default.fileExists(atPath: path.pathString) {
-            FileManager.default.createFile(atPath: path.pathString, contents: nil)
+            _ = FileManager.default.createFile(atPath: path.pathString, contents: nil)
         }
         let handle = try FileHandle(forWritingTo: url)
         try handle.truncate(atOffset: 0)
