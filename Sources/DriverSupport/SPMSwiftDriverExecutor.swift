@@ -10,12 +10,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-@_spi(SwiftPMInternal)
+@_spi(SwiftPMInternal) @_spi(ProcessEnvironmentBlockShim)
 public import Basics
 
 public import SwiftDriver
 
 public import class TSCBasic.Process
+import typealias TSCBasic.ProcessEnvironmentBlock
 public import struct TSCBasic.ProcessResult
 
 public final class SPMSwiftDriverExecutor: DriverExecutor {
@@ -57,8 +58,8 @@ public final class SPMSwiftDriverExecutor: DriverExecutor {
         }
         
         
-        var childEnv = [String: String](env)
-        childEnv.merge(job.extraEnvironment, uniquingKeysWith: { (_, new) in new })
+        var childEnv = ProcessEnvironmentBlock(env)
+        childEnv.merge(job.extraEnvironmentBlock, uniquingKeysWith: { (_, new) in new })
 
         let process = try Process.launchProcess(arguments: arguments, env: childEnv)
         return try process.waitUntilExit()
@@ -86,10 +87,10 @@ public final class SPMSwiftDriverExecutor: DriverExecutor {
             result += " # \(job.commandLine.joinedUnresolvedArguments)"
         }
         
-        if !job.extraEnvironment.isEmpty {
+        if !job.extraEnvironmentBlock.isEmpty {
             result += " #"
-            for (envVar, val) in job.extraEnvironment {
-                result += " \(envVar)=\(val)"
+            for (envVar, val) in job.extraEnvironmentBlock {
+                result += " \(envVar.value)=\(val)"
             }
         }
         return result
