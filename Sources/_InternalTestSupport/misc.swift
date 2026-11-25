@@ -214,12 +214,77 @@ public func copyFileAtomically(
     let temporaryDestination = destination.parentDirectory.appending(
         component: ".\(destination.basename).copying-\(UUID().uuidString)"
     )
+    #if os(Windows)
     try fileSystem.writeFileContents(temporaryDestination, bytes: bytes)
-    if fileSystem.isExecutableFile(source) {
-        try fileSystem.chmod(.executable, path: temporaryDestination, options: [])
+    #else
+    if type(of: fileSystem) == type(of: localFileSystem) {
+        try writeNewFileCloseOnExec(bytes, to: temporaryDestination)
+    } else {
+        try fileSystem.writeFileContents(temporaryDestination, bytes: bytes)
     }
-    try fileSystem.move(from: temporaryDestination, to: destination)
+    #endif
+    do {
+        if fileSystem.isExecutableFile(source) {
+            try fileSystem.chmod(.executable, path: temporaryDestination, options: [])
+        }
+        try fileSystem.move(from: temporaryDestination, to: destination)
+    } catch {
+        try? fileSystem.removeFileTree(temporaryDestination)
+        throw error
+    }
 }
+
+#if !os(Windows)
+/// Creates `path` (failing if it already exists), writes all of `bytes` to it, and closes it.
+///
+/// The descriptor is close-on-exec, so a process spawned from another thread while the file is open does not inherit a write handle to it. An inherited write handle makes a later `exec` of the file fail with `ETXTBSY`. `afterWriting` runs with the descriptor while it is still open.
+public func writeNewFileCloseOnExec(
+    _ bytes: ByteString,
+    to path: AbsolutePath,
+    afterWriting: ((Int32) throws -> Void)? = nil
+) throws {
+    var fd: Int32
+    repeat {
+        fd = open(path.pathString, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0o666)
+    } while fd == -1 && errno == EINTR
+    guard fd != -1 else {
+        throw posixError(errno)
+    }
+
+    do {
+        try bytes.contents.withUnsafeBytes { buffer in
+            var offset = 0
+            while offset < buffer.count {
+                let written = write(fd, buffer.baseAddress! + offset, buffer.count - offset)
+                if written == -1 {
+                    if errno == EINTR { continue }
+                    throw posixError(errno)
+                }
+                if written == 0 {
+                    throw posixError(EIO)
+                }
+                offset += written
+            }
+        }
+        try afterWriting?(fd)
+    } catch {
+        close(fd)
+        unlink(path.pathString)
+        throw error
+    }
+
+    // close is not retried on EINTR: the descriptor is already released.
+    guard close(fd) == 0 || errno == EINTR else {
+        let error = posixError(errno)
+        unlink(path.pathString)
+        throw error
+    }
+}
+
+private func posixError(_ code: Int32) -> NSError {
+    NSError(domain: NSPOSIXErrorDomain, code: Int(code))
+}
+#endif
 
 @available(*, deprecated, message: "Migrate test to Swift Testing and use 'fixture' instead")
 @discardableResult public func fixtureXCTest<T>(
