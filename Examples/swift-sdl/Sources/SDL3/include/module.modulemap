@@ -1,4 +1,0 @@
-module SDL3 [system] {
-    header "SDL.h"
-    export *
-}

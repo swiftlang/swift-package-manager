@@ -29,9 +29,16 @@ enum Serialization {
         let traits: [String]?
     }
 
+    enum BuildSettingUsage: Codable {
+        case `private`
+        case `public`
+        case interface
+    }
+
     struct BuildSettingData: Codable {
         let name: String
         let value: [String]
+        let usage: BuildSettingUsage?
         let condition: BuildSettingCondition?
     }
 

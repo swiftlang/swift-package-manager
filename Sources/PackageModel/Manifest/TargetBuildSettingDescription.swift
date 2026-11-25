@@ -42,12 +42,20 @@ public enum TargetBuildSettingDescription {
         case `internal`
     }
 
+    public enum Usage: String, Codable, Hashable, Sendable {
+        case `public`
+        case `private`
+        case interface
+    }
+
     /// The kind of the build setting, with associate configuration
     public enum Kind: Codable, Hashable, Sendable {
-        case headerSearchPath(String)
+        case headerSearchPath(String, Usage)
         case define(String)
         case linkedLibrary(String)
+        case librarySearchPath(String, Usage)
         case linkedFramework(String)
+        case frameworkSearchPath(String, Usage)
 
         case interoperabilityMode(InteroperabilityMode)
 
@@ -77,7 +85,7 @@ public enum TargetBuildSettingDescription {
             case .headerSearchPath, .define, .linkedLibrary, .linkedFramework, .interoperabilityMode,
                  .enableUpcomingFeature, .enableExperimentalFeature, .strictMemorySafety, .swiftLanguageMode,
                  .treatAllWarnings, .treatWarning, .enableWarning, .disableWarning, .defaultIsolation,
-                 .bridgingHeader, .defaults:
+                 .bridgingHeader, .defaults, .librarySearchPath, .frameworkSearchPath:
                 return false
             }
         }

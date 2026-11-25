@@ -262,6 +262,7 @@ extension PackagePIFProjectBuilder {
     func configureSwiftTargetModuleMap(
         for sourceModule: PackageGraph.ResolvedModule,
         targetSuffix: TargetSuffix?,
+        generatedFiles: GeneratedFiles?,
         settings: inout BuildSettings,
         impartedSettings: inout BuildSettings
     ) throws -> (contents: String?, path: String?) {
@@ -278,25 +279,50 @@ extension PackagePIFProjectBuilder {
         ).pathString
 
         var cUmbrellaDeclaration: String? = nil
-        switch sourceModule.moduleMapType {
-        case .umbrellaHeader(let path):
-            log(.debug, "\(package.name).\(sourceModule.name) generated umbrella header")
-            cUmbrellaDeclaration = "umbrella header \"\(path.escapedPathString)\""
-        case .umbrellaDirectory(let path):
-            log(.debug, "\(package.name).\(sourceModule.name) generated umbrella directory")
-            cUmbrellaDeclaration = "umbrella \"\(path.escapedPathString)\""
-        case .custom(let customModuleMapPath):
-            let customModuleMapPathString = customModuleMapPath.pathString
+        if let generatedFiles, let pluginGeneratedModuleMapPath = generatedFiles.moduleMaps.first?.pathString {
+            if case let .custom(customModuleMapPath) = sourceModule.moduleMapType {
+                pifBuilder.observabilityScope.emit(
+                    severity: .error,
+                    message: "Multiple module maps found for target \(sourceModule.name): \(customModuleMapPath), \(generatedFiles.moduleMaps.map(\.pathString).joined(separator: ", "))"
+                )
+                return (nil, nil)
+            }
+            if generatedFiles.moduleMaps.count > 1 {
+                pifBuilder.observabilityScope.emit(
+                    severity: .error,
+                    message: "Multiple module maps found for target \(sourceModule.name): \(generatedFiles.moduleMaps.map(\.pathString).joined(separator: ", "))"
+                )
+                return (nil, nil)
+            }
             settings[.OTHER_SWIFT_FLAGS].lazilyInitializeAndMutate(initialValue: ["$(inherited)"]) {
                 $0.append(contentsOf: [
                     "-import-underlying-module",
-                    "-Xcc", "-fmodule-map-file=\(customModuleMapPathString)",
+                    "-Xcc", "-fmodule-map-file=\(pluginGeneratedModuleMapPath)",
                 ])
             }
-            self.impartModuleMap(at: customModuleMapPathString, to: &impartedSettings)
-            return (nil, customModuleMapPathString)
-        case nil, .some(.none):
-            break
+            self.impartModuleMap(at: pluginGeneratedModuleMapPath, to: &impartedSettings)
+            return (nil, pluginGeneratedModuleMapPath)
+        } else {
+            switch sourceModule.moduleMapType {
+            case .umbrellaHeader(let path):
+                log(.debug, "\(package.name).\(sourceModule.name) generated umbrella header")
+                cUmbrellaDeclaration = "umbrella header \"\(path.escapedPathString)\""
+            case .umbrellaDirectory(let path):
+                log(.debug, "\(package.name).\(sourceModule.name) generated umbrella directory")
+                cUmbrellaDeclaration = "umbrella \"\(path.escapedPathString)\""
+            case .custom(let customModuleMapPath):
+                let customModuleMapPathString = customModuleMapPath.pathString
+                settings[.OTHER_SWIFT_FLAGS].lazilyInitializeAndMutate(initialValue: ["$(inherited)"]) {
+                    $0.append(contentsOf: [
+                        "-import-underlying-module",
+                        "-Xcc", "-fmodule-map-file=\(customModuleMapPathString)",
+                    ])
+                }
+                self.impartModuleMap(at: customModuleMapPathString, to: &impartedSettings)
+                return (nil, customModuleMapPathString)
+            case nil, .some(.none):
+                break
+            }
         }
 
         let moduleMapFileContents: String
@@ -508,25 +534,33 @@ extension PackagePIFProjectBuilder {
             (moduleMapFileContents, moduleMapPath) = try self.configureSwiftTargetModuleMap(
                 for: sourceModule,
                 targetSuffix: targetSuffix,
+                generatedFiles: generatedFiles,
                 settings: &settings,
                 impartedSettings: &impartedSettings
             )
         } else {
             // Otherwise, this is a C library module and we generate a modulemap if one is already not provided.
-            if let pluginGeneratedModuleMapPath = generatedFiles.moduleMaps.first {
-                // Warn about ignored generated module maps if more than one
-                if generatedFiles.moduleMaps.count > 1 {
-                    let ignoredFiles = generatedFiles.moduleMaps.filter({ $0 != pluginGeneratedModuleMapPath })
+            if let pluginGeneratedModuleMapPath = generatedFiles.moduleMaps.first?.pathString {
+                if case let .custom(customModuleMapPath) = sourceModule.moduleMapType {
+                    moduleMapFileContents = nil
+                    moduleMapPath = nil
                     pifBuilder.observabilityScope.emit(
-                        severity: .warning,
-                        message: "Plugins generated multiple module maps. Selected \(pluginGeneratedModuleMapPath) and ignored \(ignoredFiles.map(\.pathString).joined(separator: " "))"
+                        severity: .error,
+                        message: "Multiple module maps found for target \(sourceModule.name): \(customModuleMapPath), \(generatedFiles.moduleMaps.map(\.pathString).joined(separator: ", "))"
                     )
+                } else if generatedFiles.moduleMaps.count > 1 {
+                    moduleMapFileContents = nil
+                    moduleMapPath = nil
+                    pifBuilder.observabilityScope.emit(
+                        severity: .error,
+                        message: "Multiple module maps found for target \(sourceModule.name): \(generatedFiles.moduleMaps.map(\.pathString).joined(separator: ", "))"
+                    )
+                } else {
+                    moduleMapFileContents = nil
+                    moduleMapPath = pluginGeneratedModuleMapPath
+                    impartedSettings[.OTHER_CFLAGS] = ["-fmodule-map-file=\(pluginGeneratedModuleMapPath)", "$(inherited)"]
+                    impartedSettings[.OTHER_SWIFT_FLAGS] = ["-Xcc", "-fmodule-map-file=\(pluginGeneratedModuleMapPath)", "$(inherited)"]
                 }
-                // The modulemap was already generated, we should explicitly impart it on dependents,
-                impartedSettings[.OTHER_CFLAGS] = ["-fmodule-map-file=\(pluginGeneratedModuleMapPath)", "$(inherited)"]
-                impartedSettings[.OTHER_SWIFT_FLAGS] = ["-Xcc", "-fmodule-map-file=\(pluginGeneratedModuleMapPath)", "$(inherited)"]
-                moduleMapFileContents = nil
-                moduleMapPath = pluginGeneratedModuleMapPath.pathString
             } else {
                 switch sourceModule.moduleMapType {
                 case nil, .some(.none):
@@ -685,8 +719,6 @@ extension PackagePIFProjectBuilder {
         if let includeDirAbsPath = sourceModule.includeDirAbsolutePath {
             headerSearchPaths.append(includeDirAbsPath)
         }
-        // Include generated public header paths.
-        headerSearchPaths += generatedFiles.publicHeaderPaths
 
         if !headerSearchPaths.isEmpty {
             // Let the target itself find its own headers.
@@ -703,7 +735,7 @@ extension PackagePIFProjectBuilder {
         }
 
         // A mixed-language target's Objective-C sources may import its own Swift-generated header, which is emitted into `$(GENERATED_MODULEMAP_DIR)`.
-        if sourceModule.usesSwift && sourceModule.isMixedLanguageModule {
+        if sourceModule.usesSwift && (sourceModule.isMixedLanguageModule || !generatedFiles.moduleMaps.isEmpty) {
             settings[.HEADER_SEARCH_PATHS].lazilyInitializeAndMutate(initialValue: ["$(inherited)"]) {
                 $0.append("$(GENERATED_MODULEMAP_DIR)")
             }
@@ -790,7 +822,7 @@ extension PackagePIFProjectBuilder {
             indexableFileURLs.append(SourceControlURL(fileURLWithPath: resource.path))
         }
 
-        let headerFiles = OrderedSet(sourceModule.headerFileAbsolutePaths)
+        let headerFiles = OrderedSet(sourceModule.headerFileAbsolutePaths + generatedFiles.headers)
 
         // Add the header files with project visibility for the purpose of exposing them
         // for symbol graph generation. For non-swift API that will be done using TAPI and

@@ -10,17 +10,13 @@
 //
 //===----------------------------------------------------------------------===//
 import SwiftSDL
-import SDL3
-// For testing only
-import SwiftSyntax
-import SwiftParser
 
 @SDLApp
 final class MyApp {
     static let initFlags = SDL_INIT_VIDEO
 
-    var window: OpaquePointer
-    var renderer: OpaquePointer
+    var window: SDL_Window
+    var renderer: SDL_Renderer
 
     var width: Int32 = 640
     var height: Int32 = 480
@@ -38,9 +34,6 @@ final class MyApp {
         _ = SDL_SetRenderLogicalPresentation(renderer, logWidth, logHeight, SDL_LOGICAL_PRESENTATION_LETTERBOX)
 
         self.prevTime = SDL_GetTicks()
-
-        let parseTree = Parser.parse(source: "public var x = 6\n")
-        print(parseTree)
     }
 
     deinit {
