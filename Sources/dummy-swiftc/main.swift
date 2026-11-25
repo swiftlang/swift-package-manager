@@ -13,7 +13,12 @@
 
 import Foundation
 
-import class Basics.AsyncProcess
+import Subprocess
+#if canImport(System)
+import System
+#else
+import SystemPackage
+#endif
 
 let info = ProcessInfo.processInfo
 let env = info.environment
@@ -32,7 +37,12 @@ if info.arguments.last == "-version" {
         fatalError("need `SWIFT_ORIGINAL_PATH` in the environment")
     }
 
-    let result = try AsyncProcess.popen(arguments: [swiftPath] + info.arguments.dropFirst())
-    print(try result.utf8Output())
-    print(try result.utf8stderrOutput())
+    let result = try await Subprocess.run(
+        .path(FilePath(swiftPath)),
+        arguments: Subprocess.Arguments(Array(info.arguments.dropFirst())),
+        output: .string(limit: .max),
+        error: .string(limit: .max)
+    )
+    print(result.standardOutput ?? "")
+    print(result.standardError ?? "")
 }

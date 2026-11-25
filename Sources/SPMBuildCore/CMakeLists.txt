@@ -26,6 +26,7 @@ add_library(SPMBuildCore
   Plugins/PluginInvocation.swift
   Plugins/PluginMessages.swift
   Plugins/PluginScriptRunner.swift
+  Plugins/PrebuildCommandRunner.swift
   CommandPluginResult.swift
   MainAttrDetection.swift
   ResolvedPackage+Extensions.swift
@@ -42,6 +43,9 @@ target_link_libraries(SPMBuildCore PUBLIC
   Basics
   SwiftCollections::OrderedCollections
   PackageGraph)
+target_link_libraries(SPMBuildCore PRIVATE
+  SwiftSubprocess::Subprocess
+  SwiftSystem::SystemPackage)
 
 
 install(TARGETS SPMBuildCore

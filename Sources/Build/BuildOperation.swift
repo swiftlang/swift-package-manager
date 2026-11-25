@@ -21,7 +21,6 @@ import PackageModel
 import SPMBuildCore
 import SPMLLBuild
 
-import class Basics.AsyncProcess
 import class TSCBasic.DiagnosticsEngine
 import protocol TSCBasic.OutputByteStream
 import struct TSCBasic.RegEx
