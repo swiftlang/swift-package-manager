@@ -330,7 +330,7 @@ public final class SwiftBuildSystemMessageHandler {
             if self.logLevel.isVerbose {
                 self.outputStream.send("Target \(info.guid) up to date." + "\n")
             }
-        case .reportBuildDescription, .reportPathMap, .preparedForIndex, .buildStarted, .preparationComplete, .taskUpToDate:
+        case .reportBuildDescription, .reportPathMap, .preparedForIndex, .buildStarted, .preparationComplete, .taskUpToDate, .indexOptionsChanged:
             break
         case .buildDiagnostic, .targetDiagnostic, .taskDiagnostic:
             break // deprecated
