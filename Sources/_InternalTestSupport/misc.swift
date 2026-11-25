@@ -234,6 +234,17 @@ public func copyFileAtomically(
     }
 }
 
+/// Writes `contents` to a new file at `path` and marks it executable, for scripts that a test runs right after writing them. On Unix the file is written through `writeNewFileCloseOnExec`, so a process spawned concurrently does not inherit a write handle to it, which would make running it fail with `ETXTBSY`.
+public func writeExecutableFile(_ contents: String, to path: AbsolutePath) throws {
+    let bytes = ByteString(encodingAsUTF8: contents)
+    #if os(Windows)
+    try localFileSystem.writeFileContents(path, bytes: bytes)
+    #else
+    try writeNewFileCloseOnExec(bytes, to: path)
+    try localFileSystem.chmod(.executable, path: path, options: [])
+    #endif
+}
+
 #if !os(Windows)
 /// Creates `path` (failing if it already exists), writes all of `bytes` to it, and closes it.
 ///

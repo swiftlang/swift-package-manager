@@ -337,6 +337,38 @@ private func spawnAndWait(_ executable: String, _ arguments: String...) throws -
 
 @Suite(
     .tags(
+        .TestSize.small,
+    ),
+)
+struct WriteExecutableFileTests {
+    @Test
+    func writtenFileHasExpectedContents() throws {
+        try testWithTemporaryDirectory { tmpDir in
+            let path = tmpDir.appending(component: "script")
+
+            try writeExecutableFile("echo hello", to: path)
+
+            let actual: String = try localFileSystem.readFileContents(path)
+            #expect(actual == "echo hello")
+        }
+    }
+
+    @Test(
+        .skipHostOS(.windows, because: "There is no concept of executable file permission")
+    )
+    func writtenFileIsExecutable() throws {
+        try testWithTemporaryDirectory { tmpDir in
+            let path = tmpDir.appending(component: "script")
+
+            try writeExecutableFile("#!/bin/sh\nexit 0\n", to: path)
+
+            #expect(localFileSystem.isExecutableFile(path))
+        }
+    }
+}
+
+@Suite(
+    .tags(
         .TestSize.medium,
     ),
 )
