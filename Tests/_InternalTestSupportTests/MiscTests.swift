@@ -15,6 +15,7 @@ import SPMBuildCore
 import _InternalTestSupport
 import Testing
 import Basics
+import SystemPackage
 import struct TSCBasic.ByteString
 
 @Suite(
@@ -232,7 +233,6 @@ struct CopyFileAtomicallyTests {
     }
 }
 
-#if !os(Windows)
 @Suite(
     .tags(
         .TestSize.small,
@@ -283,14 +283,15 @@ struct WriteNewFileCloseOnExecTests {
         }
     }
 
+    #if !os(Windows)
     @Test
     func descriptorIsMarkedCloseOnExec() throws {
         try testWithTemporaryDirectory { tmpDir in
             let path = tmpDir.appending(component: "file")
             var flags: Int32 = -1
 
-            try writeNewFileCloseOnExec(ByteString(encodingAsUTF8: "content"), to: path) { fd in
-                flags = fcntl(fd, F_GETFD)
+            try writeNewFileCloseOnExec(ByteString(encodingAsUTF8: "content"), to: path) { file in
+                flags = fcntl(file.rawValue, F_GETFD)
             }
 
             #expect(flags != -1)
@@ -304,16 +305,18 @@ struct WriteNewFileCloseOnExecTests {
             let path = tmpDir.appending(component: "file")
             var childExitStatus: Int32?
 
-            try writeNewFileCloseOnExec(ByteString(encodingAsUTF8: "content"), to: path) { fd in
-                childExitStatus = try spawnAndWait("/bin/sh", "-c", "test -e /dev/fd/\(fd)")
+            try writeNewFileCloseOnExec(ByteString(encodingAsUTF8: "content"), to: path) { file in
+                childExitStatus = try spawnAndWait("/bin/sh", "-c", "test -e /dev/fd/\(file.rawValue)")
             }
 
             // `test -e` fails when the descriptor is not open in the child.
             #expect(childExitStatus == 1)
         }
     }
+    #endif
 }
 
+#if !os(Windows)
 /// Spawns `executable` with plain `posix_spawn`, which inherits every descriptor that is not close-on-exec, and returns its exit status.
 private func spawnAndWait(_ executable: String, _ arguments: String...) throws -> Int32 {
     let argv = ([executable] + arguments).map { strdup($0) } + [nil]

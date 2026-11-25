@@ -17,6 +17,7 @@ import struct Foundation.URL
 import class Foundation.Bundle
 #endif
 import OrderedCollections
+import SystemPackage
 
 @_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
 import PackageGraph
@@ -214,15 +215,11 @@ public func copyFileAtomically(
     let temporaryDestination = destination.parentDirectory.appending(
         component: ".\(destination.basename).copying-\(UUID().uuidString)"
     )
-    #if os(Windows)
-    try fileSystem.writeFileContents(temporaryDestination, bytes: bytes)
-    #else
     if type(of: fileSystem) == type(of: localFileSystem) {
         try writeNewFileCloseOnExec(bytes, to: temporaryDestination)
     } else {
         try fileSystem.writeFileContents(temporaryDestination, bytes: bytes)
     }
-    #endif
     do {
         if fileSystem.isExecutableFile(source) {
             try fileSystem.chmod(.executable, path: temporaryDestination, options: [])
@@ -234,68 +231,36 @@ public func copyFileAtomically(
     }
 }
 
-/// Writes `contents` to a new file at `path` and marks it executable, for scripts that a test runs right after writing them. On Unix the file is written through `writeNewFileCloseOnExec`, so a process spawned concurrently does not inherit a write handle to it, which would make running it fail with `ETXTBSY`.
+/// Writes `contents` to a new file at `path` and marks it executable, for scripts that a test runs right after writing them. The file is written through `writeNewFileCloseOnExec`, so a process spawned concurrently does not inherit a write handle to it, which would make running it fail with `ETXTBSY`.
 public func writeExecutableFile(_ contents: String, to path: AbsolutePath) throws {
-    let bytes = ByteString(encodingAsUTF8: contents)
-    #if os(Windows)
-    try localFileSystem.writeFileContents(path, bytes: bytes)
-    #else
-    try writeNewFileCloseOnExec(bytes, to: path)
+    try writeNewFileCloseOnExec(ByteString(encodingAsUTF8: contents), to: path)
     try localFileSystem.chmod(.executable, path: path, options: [])
-    #endif
 }
 
-#if !os(Windows)
 /// Creates `path` (failing if it already exists), writes all of `bytes` to it, and closes it.
 ///
 /// The descriptor is close-on-exec, so a process spawned from another thread while the file is open does not inherit a write handle to it. An inherited write handle makes a later `exec` of the file fail with `ETXTBSY`. `afterWriting` runs with the descriptor while it is still open.
 public func writeNewFileCloseOnExec(
     _ bytes: ByteString,
     to path: AbsolutePath,
-    afterWriting: ((Int32) throws -> Void)? = nil
+    afterWriting: ((FileDescriptor) throws -> Void)? = nil
 ) throws {
-    var fd: Int32
-    repeat {
-        fd = open(path.pathString, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0o666)
-    } while fd == -1 && errno == EINTR
-    guard fd != -1 else {
-        throw posixError(errno)
-    }
-
+    let file = try FileDescriptor.open(
+        FilePath(path.pathString),
+        .writeOnly,
+        options: [.create, .exclusiveCreate, .closeOnExec],
+        permissions: [.ownerReadWrite, .groupReadWrite, .otherReadWrite]
+    )
     do {
-        try bytes.contents.withUnsafeBytes { buffer in
-            var offset = 0
-            while offset < buffer.count {
-                let written = write(fd, buffer.baseAddress! + offset, buffer.count - offset)
-                if written == -1 {
-                    if errno == EINTR { continue }
-                    throw posixError(errno)
-                }
-                if written == 0 {
-                    throw posixError(EIO)
-                }
-                offset += written
-            }
-        }
-        try afterWriting?(fd)
+        try file.writeAll(bytes.contents)
+        try afterWriting?(file)
+        try file.close()
     } catch {
-        close(fd)
-        unlink(path.pathString)
-        throw error
-    }
-
-    // close is not retried on EINTR: the descriptor is already released.
-    guard close(fd) == 0 || errno == EINTR else {
-        let error = posixError(errno)
-        unlink(path.pathString)
+        try? file.close()
+        try? localFileSystem.removeFileTree(path)
         throw error
     }
 }
-
-private func posixError(_ code: Int32) -> NSError {
-    NSError(domain: NSPOSIXErrorDomain, code: Int(code))
-}
-#endif
 
 @available(*, deprecated, message: "Migrate test to Swift Testing and use 'fixture' instead")
 @discardableResult public func fixtureXCTest<T>(
