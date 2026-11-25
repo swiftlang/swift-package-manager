@@ -302,6 +302,8 @@ extension SwiftPackageCommand {
                         . Please enable them manually by adding the following Swift settings to the target: \
                         '\(settings)'
                         """
+                    @unknown default:
+                        break
                     }
                 }
 
