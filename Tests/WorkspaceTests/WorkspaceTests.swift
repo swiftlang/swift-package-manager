@@ -4511,6 +4511,118 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    func testResolvedFileOriginHashIncludesEvaluatedDependencies() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(
+                            name: "Root",
+                            dependencies: [
+                                .product(name: "Foo", package: "foo"),
+                            ]
+                        ),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .sourceControl(url: "https://localhost/org/foo", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    toolsVersion: .v5_10
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "Foo",
+                    url: "https://localhost/org/foo",
+                    targets: [
+                        MockTarget(name: "Foo"),
+                    ],
+                    products: [
+                        MockProduct(name: "Foo", modules: ["Foo"]),
+                    ],
+                    versions: ["1.0.0", "1.3.1"]
+                ),
+            ]
+        )
+
+        // initial resolution without resolved file
+        do {
+            try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
+                PackageGraphTesterXCTest(graph) { result in
+                    result.check(roots: "Root")
+                    result.check(packages: "Foo", "Root")
+                }
+                // no errors
+                XCTAssertNoDiagnostics(diagnostics)
+            }
+
+            workspace.checkResolved { result in
+                result.check(dependency: "foo", at: .checkout(.version("1.3.1")))
+            }
+        }
+
+        do {
+            // reset but keep resolved file
+            try await workspace.closeWorkspace(resetResolvedFile: false)
+
+            // Simulate an environment-dependent manifest whose evaluated
+            // dependencies changed while the manifest text on disk stayed the
+            // same: replace the evaluated root manifest with one that no
+            // longer declares the Foo dependency (and no longer uses its
+            // product).
+            let rootPath = try workspace.pathToRoot(withName: "Root")
+            let key = MockManifestLoader.Key(url: rootPath.pathString)
+            let oldManifest = try XCTUnwrap(workspace.manifestLoader.manifests[key])
+            let newManifest = Manifest.createManifest(
+                displayName: oldManifest.displayName,
+                path: rootPath,
+                packageKind: oldManifest.packageKind,
+                packageIdentity: oldManifest.packageIdentity,
+                packageLocation: oldManifest.packageLocation,
+                toolsVersion: oldManifest.toolsVersion,
+                dependencies: [],
+                products: oldManifest.products,
+                targets: [try TargetDescription(name: "Root")],
+                traits: oldManifest.traits,
+                pruneDependencies: oldManifest.pruneDependencies
+            )
+            workspace.manifestLoader.manifests[key] = newManifest
+
+            // run resolution again: the stored origin hash must no longer
+            // match, so resolution falls back to a full resolve instead of
+            // trusting the pins for the now-inactive dependency
+            try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
+                PackageGraphTesterXCTest(graph) { result in
+                    result.check(roots: "Root")
+                    result.check(packages: "Root")
+                }
+                // no errors
+                XCTAssertNoDiagnostics(diagnostics)
+                // check resolution mode
+                testPartialDiagnostics(diagnostics, minSeverity: .debug) { result in
+                    result.checkUnordered(
+                        diagnostic: "'\(Workspace.DefaultLocations.resolvedFileName)' origin hash does do not match manifest dependencies. resolving and updating accordingly",
+                        severity: .debug
+                    )
+                    result.checkUnordered(
+                        diagnostic: "resolving and updating '\(Workspace.DefaultLocations.resolvedFileName)'",
+                        severity: .debug
+                    )
+                }
+            }
+
+            // the stale pin for the inactive dependency must be gone
+            let resolvedPackagesStore = try workspace.getOrCreateWorkspace().resolvedPackagesStore.load()
+            XCTAssertNil(resolvedPackagesStore.resolvedPackages["foo"])
+        }
+    }
+
     // util
     func checkPinnedVersion(pin: ResolvedPackagesStore.ResolvedPackage, version: Version) {
         switch pin.state {
