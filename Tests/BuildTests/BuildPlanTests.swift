@@ -637,8 +637,9 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                 buildSystem: buildSystemProvider
             )
 
+            // Swift Build prints the verbose compile commands to stdout; also include stderr in case that changes.
             let out = if buildSystemProvider == .swiftbuild {
-                stderr
+                stdout + stderr
             } else {
                 stdout
             }
@@ -656,17 +657,14 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                         XCTAssertMatch(out, .contains("-package-name foopkg"))
 
                     case .swiftbuild:
-                        // https://github.com/swiftlang/swift-package-manager/issues/10674
-                        // do we want/need any assertions?
-                        // XCTAssertMatch(out, .contains("-module-name Foo"))
-                        // XCTAssertMatch(out, .contains("-module-name Zoo"))
-                        // XCTAssertMatch(out, .contains("-module-name Bar"))
-                        // XCTAssertMatch(out, .contains("-module-name Baz"))
-                        // XCTAssertMatch(out, .contains("-module-name App"))
-                        // XCTAssertMatch(out, .contains("-module-name exe"))
-                        // XCTAssertMatch(out, .contains("-package-name apppkg"))
-                        // XCTAssertMatch(out, .contains("-package-name foopkg"))
-                        break
+                        XCTAssertMatch(out, .contains("-module-name Foo"))
+                        XCTAssertMatch(out, .contains("-module-name Zoo"))
+                        XCTAssertMatch(out, .contains("-module-name Bar"))
+                        XCTAssertMatch(out, .contains("-module-name Baz"))
+                        XCTAssertMatch(out, .contains("-module-name App"))
+                        XCTAssertMatch(out, .contains("-module-name exe"))
+                        XCTAssertMatch(out, .contains("-package-name apppkg"))
+                        XCTAssertMatch(out, .contains("-package-name foopkg"))
 
                     case .xcode:
                         XCTFail("Test assertions have not been defined.")
