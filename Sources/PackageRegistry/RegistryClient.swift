@@ -50,7 +50,7 @@ public final class RegistryClient: AsyncCancellable {
     private var configuration: RegistryConfiguration
     private let archiverProvider: (FileSystem) -> Archiver
     private let httpClient: HTTPClient
-    private let authorizationProvider: LegacyHTTPClientConfiguration.AuthorizationProvider?
+    let authorizationProvider: LegacyHTTPClientConfiguration.AuthorizationProvider?
     private let fingerprintStorage: PackageFingerprintStorage?
     private let fingerprintCheckingMode: FingerprintCheckingMode
     private let skipSignatureValidation: Bool
