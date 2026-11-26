@@ -341,11 +341,29 @@ def main() -> None:
                 )
 
             try:
+                call(
+                    filterIsTruthy(
+                        [
+                            "swift", "build",
+                            "--product", "swiftpm-testing-helper",
+                        ]
+                    )
+                )
+
+                call(
+                    filterIsTruthy(
+                        [
+                            "swift", "run", "swift-build",
+                            "--scratch-path", ".test",
+                        ]
+                    )
+                )
+
                 call_with_stall_watchdog(
                     filterIsTruthy(
                         [
-                            "swift",
-                            "test",
+                            "swift", "run", "swift-test",
+                            "--scratch-path", ".test",
                             *global_args,
                             *BUILD_OVERRIDES,
                             "--parallel",
