@@ -345,7 +345,7 @@ def main() -> None:
                     filterIsTruthy(
                         [
                             "swift", "build",
-                            "--product", "swiftpm-testing-helper",
+                            "--scratch-path", ".stage1",
                         ]
                     )
                 )
@@ -353,8 +353,8 @@ def main() -> None:
                 call(
                     filterIsTruthy(
                         [
-                            "swift", "run", "swift-build",
-                            "--scratch-path", ".test",
+                            ".stage1/debug/swift-build",
+                            "--scratch-path", ".stage2",
                         ]
                     )
                 )
@@ -362,8 +362,7 @@ def main() -> None:
                 call_with_stall_watchdog(
                     filterIsTruthy(
                         [
-                            "swift", "run", "swift-test",
-                            "--scratch-path", ".test",
+                            ".stage2/debug/swift-test",
                             *global_args,
                             *BUILD_OVERRIDES,
                             "--parallel",
