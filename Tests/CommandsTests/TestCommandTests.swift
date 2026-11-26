@@ -285,11 +285,10 @@ struct TestCommandTests {
     }
 
     @Test(
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/10683", relationship: .verifies),
         .tags(
             .Feature.TargetType.Executable,
         ),
-        .issue("https://github.com/swiftlang/swift-package-manager/issues/10683", relationship: .defect),
-        .SWBINTTODO("Test currently fails due to 'error: build failed'"),
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func enableDisableTestabilityDisabled(
@@ -311,17 +310,11 @@ struct TestCommandTests {
                     return
                 }
 
-                withKnownIssue(
-                    "because https://github.com/swiftlang/swift-package-manager/issues/10683",
-                    isIntermittent: true
-                ) {
-                    #expect(
-                        stderr.contains("was not compiled for testing") || stderr.contains("ignore swiftmodule built without '-enable-testing'"),
-                        "got stdout: \(stdout), stderr: \(stderr)",
-                    )
-                } when: {
-                    buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .macOS
-                }
+                let output = stdout + stderr
+                #expect(
+                    output.contains("was not compiled for testing") || output.contains("built without '-enable-testing'"),
+                    "got stdout: \(stdout), stderr: \(stderr)",
+                )
             }
     }
 
