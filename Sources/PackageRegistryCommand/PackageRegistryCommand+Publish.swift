@@ -29,7 +29,6 @@ import X509
 #endif
 
 import struct TSCBasic.ByteString
-import struct TSCBasic.RegEx
 import struct TSCBasic.SHA256
 
 import struct TSCUtility.Version
@@ -436,10 +435,9 @@ enum PackageArchiveSigner {
         }
         manifests.append(Manifest.filename)
 
-        let regex = try RegEx(pattern: #"^Package@swift-(\d+)(?:\.(\d+))?(?:\.(\d+))?.swift$"#)
+        let regex = #/Package@swift-(\d+)(?:\.(\d+))?(?:\.(\d+))?.swift/#
         let versionSpecificManifests: [String] = packageContents.filter { file in
-            let matchGroups = regex.matchGroups(in: file)
-            return !matchGroups.isEmpty
+            file.wholeMatch(of: regex) != nil
         }
         manifests.append(contentsOf: versionSpecificManifests)
 

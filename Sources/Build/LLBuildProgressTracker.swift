@@ -20,7 +20,6 @@ public import SPMBuildCore
 import SPMLLBuild
 
 public import protocol TSCBasic.OutputByteStream
-public import struct TSCBasic.RegEx
 public import class TSCBasic.ThreadSafeOutputByteStream
 
 import class TSCUtility.IndexStoreAPI
@@ -459,11 +458,11 @@ final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOut
                 // next we want to try and scoop out any errors from the output (if reasonable size, otherwise this
                 // will be very slow), so they can later be passed to the advice provider in case of failure.
                 if output.utf8.count < 1024 * 10 {
-                    let regex = try! RegEx(pattern: #".*(error:[^\n]*)\n.*"#, options: .dotMatchesLineSeparators)
-                    for match in regex.matchGroups(in: output) {
+                    let regex = #/(?s).*(error:[^\n]*)\n.*/#.matchingSemantics(.unicodeScalar)
+                    for match in output.matches(of: regex) {
                         self.errorMessagesByTarget[parser.targetName] = (
                             self.errorMessagesByTarget[parser.targetName] ?? []
-                        ) + [match[0]]
+                        ) + [String(match.output.1)]
                     }
                 }
             }
