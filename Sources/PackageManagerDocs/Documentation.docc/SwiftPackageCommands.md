@@ -51,6 +51,13 @@ Overview of package manager commands here...
 - <doc:PackageReset>
 - <doc:PackagePurgeCache>
 
+### Configuring the build cache
+- <doc:PackageBuildCacheConfigure>
+- <doc:PackageBuildCacheGetConfiguration>
+- <doc:PackageBuildCacheResetConfiguration>
+- <doc:PackageBuildCacheInfo>
+- <doc:PackageBuildCacheClean>
+
 ### Archiving packages
 - <doc:PackageArchiveSource>
 - <doc:PackageComputeChecksum>
