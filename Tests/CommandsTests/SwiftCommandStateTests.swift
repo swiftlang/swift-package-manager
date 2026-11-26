@@ -224,7 +224,7 @@ struct SwiftCommandStateTestSuites {
         .enabled(if: ProcessInfo.hostOperatingSystem == .macOS),
     )
     func excludeFromBackupMarksDirectoryAsExcluded() async throws {
-        try await withTemporaryDirectory { tmpDir in
+        try withTemporaryDirectory { tmpDir in
             let scratchDirectory = tmpDir.appending(".build")
             try localFileSystem.createDirectory(scratchDirectory, recursive: true)
 
