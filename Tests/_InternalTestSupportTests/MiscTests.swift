@@ -15,6 +15,12 @@ import SPMBuildCore
 import _InternalTestSupport
 import Testing
 import Basics
+#if canImport(System)
+import System
+#else
+import SystemPackage
+#endif
+import struct TSCBasic.ByteString
 
 @Suite(
     .tags(
@@ -227,6 +233,159 @@ struct CopyFileAtomicallyTests {
             #expect(throws: (any Error).self) {
                 try copyFileAtomically(from: source, to: destination)
             }
+        }
+    }
+}
+
+@Suite(
+    .tags(
+        .TestSize.small,
+    ),
+)
+struct WriteNewFileCloseOnExecTests {
+    @Test
+    func writtenFileHasExpectedContents() throws {
+        try testWithTemporaryDirectory { tmpDir in
+            let path = tmpDir.appending(component: "file")
+            let contents = (0..<(1 << 20)).map { UInt8(truncatingIfNeeded: $0) }
+
+            try writeNewFileCloseOnExec(ByteString(contents), to: path)
+
+            let actual = try localFileSystem.readFileContents(path).contents
+            #expect(actual == contents)
+        }
+    }
+
+    @Test
+    func existingFileIsNotOverwritten() throws {
+        try testWithTemporaryDirectory { tmpDir in
+            let path = tmpDir.appending(component: "file")
+            try localFileSystem.writeFileContents(path, string: "original")
+
+            #expect(throws: (any Error).self) {
+                try writeNewFileCloseOnExec(ByteString(encodingAsUTF8: "replacement"), to: path)
+            }
+
+            let actual: String = try localFileSystem.readFileContents(path)
+            #expect(actual == "original")
+        }
+    }
+
+    @Test
+    func failureWhileOpenRemovesTheFile() throws {
+        struct Failure: Error {}
+        try testWithTemporaryDirectory { tmpDir in
+            let path = tmpDir.appending(component: "file")
+
+            #expect(throws: Failure.self) {
+                try writeNewFileCloseOnExec(ByteString(encodingAsUTF8: "content"), to: path) { _ in
+                    throw Failure()
+                }
+            }
+
+            #expect(!localFileSystem.exists(path))
+        }
+    }
+
+    @Test(
+        .skipHostOS(.windows, because: "There is no concept of executable file permission")
+    )
+    func executableFlagControlsExecutePermission() throws {
+        try testWithTemporaryDirectory { tmpDir in
+            let plain = tmpDir.appending(component: "plain")
+            let executable = tmpDir.appending(component: "executable")
+
+            try writeNewFileCloseOnExec(ByteString(encodingAsUTF8: "content"), to: plain)
+            try writeNewFileCloseOnExec(ByteString(encodingAsUTF8: "content"), to: executable, executable: true)
+
+            #expect(!localFileSystem.isExecutableFile(plain))
+            #expect(localFileSystem.isExecutableFile(executable))
+        }
+    }
+
+    #if !os(Windows)
+    @Test
+    func descriptorIsMarkedCloseOnExec() throws {
+        try testWithTemporaryDirectory { tmpDir in
+            let path = tmpDir.appending(component: "file")
+            var flags: Int32 = -1
+
+            try writeNewFileCloseOnExec(ByteString(encodingAsUTF8: "content"), to: path) { file in
+                flags = fcntl(file.rawValue, F_GETFD)
+            }
+
+            #expect(flags != -1)
+            #expect(flags & FD_CLOEXEC != 0)
+        }
+    }
+
+    @Test
+    func descriptorIsNotInheritedByProcessSpawnedWhileFileIsOpen() throws {
+        try testWithTemporaryDirectory { tmpDir in
+            let path = tmpDir.appending(component: "file")
+            var childExitStatus: Int32?
+
+            try writeNewFileCloseOnExec(ByteString(encodingAsUTF8: "content"), to: path) { file in
+                childExitStatus = try spawnAndWait("/bin/sh", "-c", "test -e /dev/fd/\(file.rawValue)")
+            }
+
+            // `test -e` fails when the descriptor is not open in the child.
+            #expect(childExitStatus == 1)
+        }
+    }
+    #endif
+}
+
+#if !os(Windows)
+/// Spawns `executable` with plain `posix_spawn`, which inherits every descriptor that is not close-on-exec, and returns its exit status.
+private func spawnAndWait(_ executable: String, _ arguments: String...) throws -> Int32 {
+    let argv = ([executable] + arguments).map { strdup($0) } + [nil]
+    defer { argv.forEach { free($0) } }
+
+    var pid: pid_t = 0
+    let spawnResult = posix_spawn(&pid, executable, nil, nil, argv, environ)
+    guard spawnResult == 0 else {
+        throw NSError(domain: NSPOSIXErrorDomain, code: Int(spawnResult))
+    }
+
+    var status: Int32 = 0
+    while waitpid(pid, &status, 0) == -1 {
+        guard errno == EINTR else {
+            throw NSError(domain: NSPOSIXErrorDomain, code: Int(errno))
+        }
+    }
+    return (status >> 8) & 0xff
+}
+#endif
+
+@Suite(
+    .tags(
+        .TestSize.small,
+    ),
+)
+struct WriteExecutableFileTests {
+    @Test
+    func writtenFileHasExpectedContents() throws {
+        try testWithTemporaryDirectory { tmpDir in
+            let path = tmpDir.appending(component: "script")
+
+            try writeExecutableFile("echo hello", to: path)
+
+            let actual: String = try localFileSystem.readFileContents(path)
+            #expect(actual == "echo hello")
+        }
+    }
+
+    @Test(
+        .skipHostOS(.windows, because: "There is no concept of executable file permission")
+    )
+    func writtenFileIsExecutable() throws {
+        try testWithTemporaryDirectory { tmpDir in
+            let path = tmpDir.appending(component: "script")
+
+            try writeExecutableFile("#!/bin/sh\nexit 0\n", to: path)
+
+            #expect(localFileSystem.isExecutableFile(path))
         }
     }
 }

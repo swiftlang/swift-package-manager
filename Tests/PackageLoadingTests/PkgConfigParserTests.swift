@@ -186,8 +186,7 @@ final class PkgConfigParserTests: XCTestCase {
             echo "/Volumes/BestDrive/pkgconfig"
             """
 #endif
-            try localFileSystem.writeFileContents(fakePkgConfig, string: script)
-            try localFileSystem.chmod(.executable, path: fakePkgConfig, options: [])
+            try writeExecutableFile(script, to: fakePkgConfig)
 
 #if os(Windows)
             _ = PCFileFinder(pkgConfig: fakePkgConfig)

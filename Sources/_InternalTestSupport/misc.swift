@@ -17,6 +17,11 @@ public import struct Foundation.URL
 public import class Foundation.Bundle
 #endif
 import OrderedCollections
+#if canImport(System)
+import System
+#else
+import SystemPackage
+#endif
 
 @_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
 import PackageGraph
@@ -214,11 +219,60 @@ public func copyFileAtomically(
     let temporaryDestination = destination.parentDirectory.appending(
         component: ".\(destination.basename).copying-\(UUID().uuidString)"
     )
-    try fileSystem.writeFileContents(temporaryDestination, bytes: bytes)
-    if fileSystem.isExecutableFile(source) {
-        try fileSystem.chmod(.executable, path: temporaryDestination, options: [])
+    let isExecutable = fileSystem.isExecutableFile(source)
+    do {
+        if type(of: fileSystem) == type(of: localFileSystem) {
+            try writeNewFileCloseOnExec(bytes, to: temporaryDestination, executable: isExecutable)
+        } else {
+            try fileSystem.writeFileContents(temporaryDestination, bytes: bytes)
+            if isExecutable {
+                try fileSystem.chmod(.executable, path: temporaryDestination, options: [])
+            }
+        }
+        try fileSystem.move(from: temporaryDestination, to: destination)
+    } catch {
+        try? fileSystem.removeFileTree(temporaryDestination)
+        throw error
     }
-    try fileSystem.move(from: temporaryDestination, to: destination)
+}
+
+/// Writes `contents` to a new file at `path` and marks it executable, for scripts that a test runs right after writing them. The file is written through `writeNewFileCloseOnExec`, so a process spawned concurrently does not inherit a write handle to it, which would make running it fail with `ETXTBSY`.
+public func writeExecutableFile(_ contents: String, to path: AbsolutePath) throws {
+    try writeNewFileCloseOnExec(ByteString(encodingAsUTF8: contents), to: path, executable: true)
+}
+
+/// Creates `path` (failing if it already exists), writes all of `bytes` to it, and closes it.
+///
+/// The descriptor is close-on-exec, so a process spawned from another thread while the file is open does not inherit a write handle to it. An inherited write handle makes a later `exec` of the file fail with `ETXTBSY`.
+///
+/// With `executable`, the file is created with execute permission, subject to the umask. On Windows the mode is translated into an ACL, and running a file requires the execute right.
+///
+/// `afterWriting` runs with the descriptor while it is still open.
+public func writeNewFileCloseOnExec(
+    _ bytes: ByteString,
+    to path: AbsolutePath,
+    executable: Bool = false,
+    afterWriting: ((FileDescriptor) throws -> Void)? = nil
+) throws {
+    let permissions: FilePermissions =
+        executable
+        ? [.ownerReadWriteExecute, .groupReadWriteExecute, .otherReadWriteExecute]
+        : [.ownerReadWrite, .groupReadWrite, .otherReadWrite]
+    let file = try FileDescriptor.open(
+        FilePath(path.pathString),
+        .writeOnly,
+        options: [.create, .exclusiveCreate, .closeOnExec],
+        permissions: permissions
+    )
+    do {
+        try file.writeAll(bytes.contents)
+        try afterWriting?(file)
+        try file.close()
+    } catch {
+        try? file.close()
+        try? localFileSystem.removeFileTree(path)
+        throw error
+    }
 }
 
 @available(*, deprecated, message: "Migrate test to Swift Testing and use 'fixture' instead")

@@ -18,6 +18,7 @@
 
 import Foundation
 import Testing
+import _InternalTestSupport
 
 @testable import Basics
 
@@ -66,8 +67,7 @@ struct CancellatorProcessTests {
             echo $! > "$DIR/descendant.pid.tmp"; mv "$DIR/descendant.pid.tmp" "$DIR/descendant.pid"
             \(body)
             """
-            try text.write(to: self.script, atomically: true, encoding: .utf8)
-            try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: self.script.path)
+            try writeExecutableFile(text, to: AbsolutePath(validating: self.script.path))
         }
 
         deinit {
