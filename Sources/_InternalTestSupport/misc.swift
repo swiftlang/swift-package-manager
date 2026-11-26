@@ -249,11 +249,17 @@ public func writeNewFileCloseOnExec(
     to path: AbsolutePath,
     afterWriting: ((FileDescriptor) throws -> Void)? = nil
 ) throws {
+    #if os(Windows)
+    // On Windows the mode is translated into an ACL, and running a file requires the execute right.
+    let permissions: FilePermissions = [.ownerReadWriteExecute, .groupReadWriteExecute, .otherReadWriteExecute]
+    #else
+    let permissions: FilePermissions = [.ownerReadWrite, .groupReadWrite, .otherReadWrite]
+    #endif
     let file = try FileDescriptor.open(
         FilePath(path.pathString),
         .writeOnly,
         options: [.create, .exclusiveCreate, .closeOnExec],
-        permissions: [.ownerReadWrite, .groupReadWrite, .otherReadWrite]
+        permissions: permissions
     )
     do {
         try file.writeAll(bytes.contents)
