@@ -1059,6 +1059,69 @@ public final class RegistryClient: AsyncCancellable {
         }
     }
 
+    /// Fetches the raw advisories document for a package, optionally scoped to one version.
+    /// Registries that do not implement the endpoint yield `.unsupported`: besides 404 and 501, such registries
+    /// may answer 400 or 405, since the path overlaps `/{scope}/{name}/{version}`.
+    /// An unavailable registry (failed availability check) is an operational failure and throws
+    /// `RegistryError.registryNotAvailable`; only a 400/404/405/501 from the advisories endpoint itself means
+    /// `.unsupported`.
+    /// The body is returned undecoded so that this module does not depend on the audit model.
+    public func getPackageAdvisories(
+        package: PackageIdentity,
+        version: Version?,
+        timeout: DispatchTimeInterval? = .none,
+        observabilityScope: ObservabilityScope
+    ) async throws -> PackageAdvisoriesResponse {
+        let (registryIdentity, registry) = try self.unwrapRegistry(from: package)
+
+        try await self.withAvailabilityCheck(
+            registry: registry,
+            requiring: nil,
+            observabilityScope: observabilityScope
+        )
+
+        let wrapWithAdvisoriesFailed: (Error) -> Error = {
+            RegistryError.failedRetrievingAdvisories(registry: registry, package: package, error: $0)
+        }
+
+        let url = try registry.url.appendingRegistryPath(
+            registryIdentity.scope.description,
+            registryIdentity.name.description,
+            "advisories",
+            query: version.map { [URLQueryItem(name: "version", value: $0.description)] } ?? []
+        )
+
+        let response = try await self.get(
+            url,
+            accepting: .json,
+            intent: "retrieving advisories for \(package)",
+            timeout: timeout,
+            observabilityScope: observabilityScope,
+            wrappingErrorsWith: wrapWithAdvisoriesFailed
+        )
+
+        switch response.statusCode {
+        case 200:
+            do {
+                try response.validateAPIVersion()
+                try response.validateContentType(.json)
+            } catch {
+                throw wrapWithAdvisoriesFailed(error)
+            }
+            guard let body = response.body else {
+                throw wrapWithAdvisoriesFailed(RegistryError.invalidResponse)
+            }
+            return .supported(body: body)
+        case 400, 404, 405, 501:
+            observabilityScope.emit(
+                debug: "registry at '\(registry.url)' does not support advisories for \(package) (HTTP status \(response.statusCode))"
+            )
+            return .unsupported
+        default:
+            throw wrapWithAdvisoriesFailed(self.unexpectedStatusError(response, expectedStatus: [200]))
+        }
+    }
+
     public func login(
         loginURL: URL,
         timeout: DispatchTimeInterval? = .none,
@@ -1527,6 +1590,7 @@ public enum RegistryError: Error, CustomStringConvertible {
     case registryNotAvailable(Registry)
     case capabilityNotSupported(registry: Registry, capability: RegistryClient.Capability)
     case searchFailed(registry: Registry, error: Error)
+    case failedRetrievingAdvisories(registry: Registry, package: PackageIdentity, error: Error)
     case packageNotFound
     case packageVersionNotFound
     case sourceArchiveMissingChecksum(registry: Registry, package: PackageIdentity, version: Version)
@@ -1635,6 +1699,8 @@ public enum RegistryError: Error, CustomStringConvertible {
             return "registry at '\(registry.url)' does not support the '\(capability.rawValue)' capability"
         case .searchFailed(let registry, let error):
             return "failed searching registry at '\(registry.url)': \(error.interpolationDescription)"
+        case .failedRetrievingAdvisories(let registry, let package, let error):
+            return "failed retrieving advisories for \(package) from registry at '\(registry.url)': \(error.interpolationDescription)"
         case .packageNotFound:
             return "package not found on registry"
         case .packageVersionNotFound:
@@ -1865,6 +1931,12 @@ extension RegistryClient {
     public enum Capability: String, Hashable, Sendable, CaseIterable {
         case search
     }
+}
+
+/// Outcome of an advisories request. `unsupported` means the registry does not implement the endpoint.
+public enum PackageAdvisoriesResponse: Sendable {
+    case supported(body: Data)
+    case unsupported
 }
 
 extension RegistryClient {
