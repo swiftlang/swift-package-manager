@@ -245,7 +245,7 @@ public func writeExecutableFile(_ contents: String, to path: AbsolutePath) throw
 ///
 /// The descriptor is close-on-exec, so a process spawned from another thread while the file is open does not inherit a write handle to it. An inherited write handle makes a later `exec` of the file fail with `ETXTBSY`.
 ///
-/// With `executable`, the file is created with execute permission, subject to the umask. Windows always grants it, because there the mode is translated into an ACL and running a file requires the execute right.
+/// With `executable`, the file is created with execute permission, subject to the umask. On Windows the mode is translated into an ACL, and running a file requires the execute right.
 ///
 /// `afterWriting` runs with the descriptor while it is still open.
 public func writeNewFileCloseOnExec(
@@ -254,14 +254,10 @@ public func writeNewFileCloseOnExec(
     executable: Bool = false,
     afterWriting: ((FileDescriptor) throws -> Void)? = nil
 ) throws {
-    #if os(Windows)
-    let permissions: FilePermissions = [.ownerReadWriteExecute, .groupReadWriteExecute, .otherReadWriteExecute]
-    #else
     let permissions: FilePermissions =
         executable
         ? [.ownerReadWriteExecute, .groupReadWriteExecute, .otherReadWriteExecute]
         : [.ownerReadWrite, .groupReadWrite, .otherReadWrite]
-    #endif
     let file = try FileDescriptor.open(
         FilePath(path.pathString),
         .writeOnly,
