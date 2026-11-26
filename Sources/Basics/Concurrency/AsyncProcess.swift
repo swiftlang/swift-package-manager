@@ -1350,23 +1350,3 @@ extension AsyncProcessResult.Error: CustomStringConvertible {
         }
     }
 }
-
-#if os(Windows)
-extension FileHandle: WritableByteStream {
-    package var position: Int {
-        Int(offsetInFile)
-    }
-
-    package func write(_ byte: UInt8) {
-        self.write(Data([byte]))
-    }
-
-    package func write(_ bytes: some Collection<UInt8>) {
-        self.write(Data(bytes))
-    }
-
-    package func flush() {
-        synchronizeFile()
-    }
-}
-#endif

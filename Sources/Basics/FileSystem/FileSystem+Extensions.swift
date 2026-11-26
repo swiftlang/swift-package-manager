@@ -69,11 +69,13 @@ extension FileSystem {
         self.isWritable(path.underlying)
     }
 
+    #if canImport(Darwin)
     /// Returns `true` if a given path has a quarantine attribute applied if when file system supports this attribute.
     /// Returns `false` if such attribute is not applied or it isn't supported.
     public func hasAttribute(_ name: FileSystemAttribute, _ path: AbsolutePath) -> Bool {
         self.hasAttribute(name, path.underlying)
     }
+    #endif
 
     /// Get the contents of the given directory, in an undefined order.
     public func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {

@@ -647,7 +647,7 @@ public final class SwiftModuleBuildDescription {
 
         // suppress warnings if the package is remote
         if self.package.isRemote {
-            args = try WarningControlFlags.filterSwiftWarningControlFlags(args)
+            args = WarningControlFlags.filterSwiftWarningControlFlags(args)
             args += ["-suppress-warnings"]
         }
 

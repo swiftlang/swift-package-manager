@@ -247,7 +247,7 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
         case let request as RequestAndReply<BuildShutdownRequest>:
             await request.reply {
                 _ = try await connectionToUnderlyingBuildServer.send(request.params)
-                return await shutdown()
+                return shutdown()
             }
         case let request as RequestAndReply<BuildTargetPrepareRequest>:
             await request.reply {
