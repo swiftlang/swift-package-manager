@@ -287,6 +287,22 @@ struct WriteNewFileCloseOnExecTests {
         }
     }
 
+    @Test(
+        .skipHostOS(.windows, because: "There is no concept of executable file permission")
+    )
+    func executableFlagControlsExecutePermission() throws {
+        try testWithTemporaryDirectory { tmpDir in
+            let plain = tmpDir.appending(component: "plain")
+            let executable = tmpDir.appending(component: "executable")
+
+            try writeNewFileCloseOnExec(ByteString(encodingAsUTF8: "content"), to: plain)
+            try writeNewFileCloseOnExec(ByteString(encodingAsUTF8: "content"), to: executable, executable: true)
+
+            #expect(!localFileSystem.isExecutableFile(plain))
+            #expect(localFileSystem.isExecutableFile(executable))
+        }
+    }
+
     #if !os(Windows)
     @Test
     func descriptorIsMarkedCloseOnExec() throws {
