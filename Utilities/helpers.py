@@ -18,6 +18,7 @@ import logging
 import os
 import pathlib
 import subprocess
+import sys
 import typing as t
 
 
@@ -60,6 +61,14 @@ def mkdir_p(path):
         # Ignore EEXIST, which may occur during a race condition.
         if e.errno != errno.EEXIST:
             raise
+
+
+def exe(path: t.Union[str, pathlib.Path]) -> str:
+    """Appends `.exe` to an executable path on Windows if it has no `.exe` suffix."""
+    p = pathlib.Path(path)
+    if sys.platform == "win32" and p.suffix.lower() != ".exe":
+        p = p.with_name(p.name + ".exe")
+    return str(p)
 
 
 def call(cmd, cwd=None, verbose=False):

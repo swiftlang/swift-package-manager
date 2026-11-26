@@ -31,6 +31,7 @@ from helpers import (
     change_directory,
     call,
     call_output,
+    exe,
 )
 
 logging.basicConfig(
@@ -341,11 +342,45 @@ def main() -> None:
                 )
 
             try:
+                call(
+                    filterIsTruthy(
+                        [
+                            "swift", "build",
+                            "--scratch-path", ".stage1",
+                        ]
+                    )
+                )
+
+                # The `debug` symlink may not exist (e.g. on Windows), so ask for the real path.
+                stage1_bin_path = pathlib.Path(
+                    call_output([
+                        "swift", "build",
+                        "--scratch-path", ".stage1",
+                        "--show-bin-path",
+                    ])
+                )
+
+                call(
+                    filterIsTruthy(
+                        [
+                            exe(stage1_bin_path / "swift-build"),
+                            "--scratch-path", ".stage2",
+                        ]
+                    )
+                )
+
+                stage2_bin_path = pathlib.Path(
+                    call_output([
+                        exe(stage1_bin_path / "swift-build"),
+                        "--scratch-path", ".stage2",
+                        "--show-bin-path",
+                    ])
+                )
+
                 call_with_stall_watchdog(
                     filterIsTruthy(
                         [
-                            "swift",
-                            "test",
+                            exe(stage2_bin_path / "swift-test"),
                             *global_args,
                             *BUILD_OVERRIDES,
                             "--parallel",
