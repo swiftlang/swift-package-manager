@@ -346,4 +346,19 @@ final class VersionSetSpecifierTests: XCTestCase {
             "0.0.1" ..< "2.0.0",
         ]).supportsPrereleases)
     }
+
+    // https://github.com/swiftlang/swift-package-manager/issues/10763
+    func testExactPrereleaseAndEquivalentRangeIntersectConsistently() {
+        let requirement = VersionSetSpecifier.range("1.0.0"..<"2.0.0")
+        let exact = VersionSetSpecifier.exact("1.1.0-next.1")
+        let exactAsRange = VersionSetSpecifier.range("1.1.0-next.1"..<"1.1.0-next.1.0")
+
+        // `==` already treats these two as the same set.
+        XCTAssertEqual(exact, exactAsRange)
+
+        // So set operations must agree regardless of which representation is used.
+        XCTAssertEqual(requirement.intersection(exact), requirement.intersection(exactAsRange))
+        XCTAssertEqual(exact.intersection(requirement), exactAsRange.intersection(requirement))
+        XCTAssertEqual(requirement.difference(exact), requirement.difference(exactAsRange))
+    }
 }
