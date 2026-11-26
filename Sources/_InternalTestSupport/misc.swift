@@ -17,7 +17,11 @@ import struct Foundation.URL
 import class Foundation.Bundle
 #endif
 import OrderedCollections
+#if canImport(System)
+import System
+#else
 import SystemPackage
+#endif
 
 @_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
 import PackageGraph

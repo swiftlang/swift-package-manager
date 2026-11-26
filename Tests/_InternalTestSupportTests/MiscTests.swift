@@ -15,7 +15,11 @@ import SPMBuildCore
 import _InternalTestSupport
 import Testing
 import Basics
+#if canImport(System)
+import System
+#else
 import SystemPackage
+#endif
 import struct TSCBasic.ByteString
 
 @Suite(
