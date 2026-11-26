@@ -679,6 +679,8 @@ struct InitTests {
                 .init(platform: .iOS, version: PlatformVersion("12")),
                 .init(platform: .watchOS, version: PlatformVersion("2.1")),
                 .init(platform: .tvOS, version: PlatformVersion("999")),
+                .init(platform: .visionOS, version: PlatformVersion("1")),
+                .init(platform: .driverKit, version: PlatformVersion("20")),
             ]
 
             let packageRoot = tempDirPath.appending("Foo")
@@ -695,7 +697,7 @@ struct InitTests {
             try initPackage.writePackageStructure()
 
             let contents: String = try localFileSystem.readFileContents(packageRoot.appending("Package.swift"))
-            #expect(contents.contains(#"platforms: [.macOS(.v10_15), .iOS(.v12), .watchOS("2.1"), .tvOS("999.0")],"#))
+            #expect(contents.contains(#"platforms: [.macOS(.v10_15), .iOS(.v12), .watchOS("2.1"), .tvOS("999.0"), .visionOS(.v1), .driverKit(.v20)],"#))
         }
     }
 
