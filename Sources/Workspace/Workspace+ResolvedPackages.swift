@@ -68,6 +68,25 @@ extension Workspace {
                     }
                 }
             }
+            // A stale origin hash makes every later resolution without checkouts rerun the resolver
+            // instead of using the resolved file, so refresh it even when the pins haven't changed.
+            // Only the V3 format, used for tools versions after 5.9, records this hash.
+            // Save the stored pins rather than the managed dependencies, so their locations keep
+            // the spelling already in the file.
+            // Without pins there is nothing to refresh, and saving would only delete the file.
+            if !needsUpdate, rootManifestsMinimumToolsVersion > .v5_9,
+               !persistedResolvedPackagesStore.resolvedPackages.isEmpty,
+               persistedResolvedPackagesStore.originHash != originHash
+            {
+                observabilityScope.trap {
+                    try persistedResolvedPackagesStore.saveState(
+                        toolsVersion: rootManifestsMinimumToolsVersion,
+                        originHash: originHash
+                    )
+                }
+                self.resolvedFileWatcher?.updateValue()
+                return
+            }
         } else {
             needsUpdate = true
         }
