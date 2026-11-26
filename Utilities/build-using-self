@@ -31,6 +31,7 @@ from helpers import (
     change_directory,
     call,
     call_output,
+    exe,
 )
 
 logging.basicConfig(
@@ -353,7 +354,7 @@ def main() -> None:
                 call(
                     filterIsTruthy(
                         [
-                            ".stage1/debug/swift-build",
+                            exe(".stage1/debug/swift-build"),
                             "--scratch-path", ".stage2",
                         ]
                     )
@@ -362,7 +363,7 @@ def main() -> None:
                 call_with_stall_watchdog(
                     filterIsTruthy(
                         [
-                            ".stage2/debug/swift-test",
+                            exe(".stage2/debug/swift-test"),
                             *global_args,
                             *BUILD_OVERRIDES,
                             "--parallel",
