@@ -208,6 +208,26 @@ class PkgConfigTests: XCTestCase {
         }
     }
 
+    func testProhibitedFlagsFromSharedDependencyAreNamedOnce() throws {
+        // DiamondTop requires DiamondLeft and DiamondRight, which both require
+        // DiamondBase, so the prohibited flags in DiamondBase are read twice.
+        for result in try pkgConfigArgs(
+            for: SystemLibraryModule(pkgConfig: "DiamondTop"),
+            pkgConfigDirectories: [inputsDir],
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        ) {
+            XCTAssertEqual(result.pkgConfigName, "DiamondTop")
+            XCTAssertFalse(result.couldNotFindConfigFile)
+            switch result.error {
+            case PkgConfigError.prohibitedFlags(let desc)?:
+                XCTAssertEqual(desc, "-DDenyListed, -DAlsoDenyListed")
+            default:
+                XCTFail("unexpected error \(result.error.debugDescription)")
+            }
+        }
+    }
+
     func testDependencies() throws {
         // Use additionalSearchPaths instead of pkgConfigArgs to test handling
         // of search paths when loading dependencies.

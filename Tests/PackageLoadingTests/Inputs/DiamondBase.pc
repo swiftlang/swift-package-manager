@@ -1,0 +1,3 @@
+Name: DiamondBase
+Cflags: -I/path/to/base/include -DDenyListed -DAlsoDenyListed
+Libs: -L/path/to/base/lib
