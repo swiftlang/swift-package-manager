@@ -1,0 +1,3 @@
+import GeneratedLibrary
+
+print(answer)
