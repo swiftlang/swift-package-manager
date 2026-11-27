@@ -16,7 +16,6 @@ import CoreCommands
 import Foundation
 import PackageGraph
 import PackageModel
-import SwiftParser
 @_spi(PackageRefactor) import SwiftRefactor
 import SwiftSyntax
 import SwiftSyntaxBuilder
@@ -76,35 +75,12 @@ extension SwiftPackageCommand {
         var testingLibrary: AddPackageTarget.TestHarness = .default
 
         func run(_ swiftCommandState: SwiftCommandState) async throws {
-            let workspace = try swiftCommandState.getActiveWorkspace()
-
-            guard let packagePath = try swiftCommandState.getWorkspaceRoot().packages.first else {
-                throw StringError("unknown package")
-            }
-
-            // Load the manifest file
-            let fileSystem = workspace.fileSystem
-            let manifestPath = packagePath.appending("Package.swift")
-            let manifestContents: ByteString
-            do {
-                manifestContents = try fileSystem.readFileContents(manifestPath)
-            } catch {
-                throw StringError("cannot find package manifest in \(manifestPath)")
-            }
-
-            // Parse the manifest.
-            let manifestSyntax = manifestContents.withData { data in
-                data.withUnsafeBytes { buffer in
-                    buffer.withMemoryRebound(to: UInt8.self) { buffer in
-                        Parser.parse(source: buffer)
-                    }
-                }
-            }
+            let (manifestSyntax, manifestPath) = try swiftCommandState.readPackageManifestAsSyntaxTree()
 
             // Move sources into their own folder if they're directly in `./Sources`.
             try await self.moveSingleTargetSources(
-                workspace: workspace,
-                packagePath: packagePath,
+                workspace: swiftCommandState.getActiveWorkspace(),
+                packagePath: manifestPath,
                 verbose: !self.globalOptions.logging.quiet,
                 observabilityScope: swiftCommandState.observabilityScope
             )
@@ -140,7 +116,7 @@ extension SwiftPackageCommand {
             )
 
             try editResult.applyEdits(
-                to: fileSystem,
+                to: swiftCommandState.getActiveWorkspace().fileSystem,
                 manifest: manifestSyntax,
                 manifestPath: manifestPath,
                 verbose: !self.globalOptions.logging.quiet
@@ -150,7 +126,7 @@ extension SwiftPackageCommand {
             try self.addAuxiliaryFiles(
                 target: target,
                 testHarness: self.testingLibrary,
-                fileSystem: fileSystem,
+                fileSystem: swiftCommandState.getActiveWorkspace().fileSystem,
                 rootPath: manifestPath.parentDirectory
             )
         }
