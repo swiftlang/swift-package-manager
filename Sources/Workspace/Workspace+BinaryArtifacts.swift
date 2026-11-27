@@ -579,10 +579,20 @@ extension Workspace {
             fileSystem: any FileSystem
         ) throws -> String {
             let archiver = archiver ?? UniversalArchiver(fileSystem)
+            let isArtifactBundleIndex =
+                path.extension?.lowercased() == "artifactbundleindex"
+
             // Validate the path has a supported extension.
-            guard let lastPathComponent = path.components.last, archiver.isFileSupported(lastPathComponent) else {
-                let supportedExtensionList = archiver.supportedExtensions.joined(separator: ", ")
-                throw StringError("unexpected file type; supported extensions are: \(supportedExtensionList)")
+            guard let lastPathComponent = path.components.last,
+                  archiver.isFileSupported(lastPathComponent) || isArtifactBundleIndex
+            else {
+                let supportedExtensionList =
+                    (archiver.supportedExtensions + ["artifactbundleindex"])
+                    .joined(separator: ", ")
+
+                throw StringError(
+                    "unexpected file type; supported extensions are: \(supportedExtensionList)"
+                )
             }
 
             // Ensure that the path with the accepted extension is a file.
