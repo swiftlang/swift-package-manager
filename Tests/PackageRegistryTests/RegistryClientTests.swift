@@ -3469,6 +3469,30 @@ fileprivate var searchURL = URL("\(registryURL)/search?q=foo&limit=20&offset=0")
         }
     }
 
+    @Test func bypassesURLCache() async throws {
+        let loginURL = URL("\(registryURL)/login")
+
+        let handler: HTTPClient.Implementation = { request, _ in
+            #expect(request.options.cachePolicy == .never)
+            return .init(
+                statusCode: 200,
+                headers: .init([
+                    .init(name: "Content-Version", value: "1"),
+                ])
+            )
+        }
+
+        let httpClient = HTTPClient(implementation: handler)
+        var configuration = RegistryConfiguration()
+        configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
+
+        let registryClient = makeRegistryClient(
+            configuration: configuration,
+            httpClient: httpClient
+        )
+        try await registryClient.login(loginURL: loginURL)
+    }
+
     @Test func handlesMissingCredentials() async throws {
         let loginURL = URL("\(registryURL)/login")
 
@@ -4573,6 +4597,128 @@ fileprivate var searchURL = URL("\(registryURL)/search?q=foo&limit=20&offset=0")
         let count = await counter.value
         #expect(count == 2) // availability + search
     }
+}
+
+@Suite("URL Cache") struct RegistryURLCache {
+    enum Operation: CaseIterable, Sendable {
+        case releaseList
+        case versionMetadata
+        case availableManifests
+        case manifestContent
+        case identifierLookup
+        case search
+        case availability
+    }
+
+    @Test(arguments: Operation.allCases)
+    func getRequestsBypassURLCache(operation: Operation) async throws {
+        let cachePolicies = ThreadSafeArrayStore<HTTPClientRequest.CachePolicy>()
+        let handler: HTTPClient.Implementation = { request, _ in
+            _ = cachePolicies.append(request.options.cachePolicy)
+            return try Self.response(for: request)
+        }
+
+        try await Self.run(operation, on: Self.makeClient(handler: handler))
+
+        #expect(!cachePolicies.get().isEmpty)
+        #expect(cachePolicies.get().allSatisfy { $0 == .never })
+    }
+
+    private static var availableRegistry: Registry {
+        Registry(url: registryURL, supportsAvailability: true)
+    }
+
+    private static func makeClient(handler: @escaping HTTPClient.Implementation) -> RegistryClient {
+        var configuration = RegistryConfiguration()
+        configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
+        configuration.security = .testDefault
+        return makeRegistryClient(configuration: configuration, httpClient: HTTPClient(implementation: handler))
+    }
+
+    private static func run(_ operation: Operation, on client: RegistryClient) async throws {
+        switch operation {
+        case .releaseList:
+            _ = try await client.getPackageMetadata(package: identity)
+        case .versionMetadata:
+            _ = try await client.getPackageVersionMetadata(package: identity, version: version)
+        case .availableManifests:
+            _ = try await client.getAvailableManifests(
+                package: identity,
+                version: version,
+                observabilityScope: ObservabilitySystem.NOOP
+            )
+        case .manifestContent:
+            _ = try await client.getManifestContent(package: identity, version: version, customToolsVersion: nil)
+        case .identifierLookup:
+            _ = try await client.lookupIdentities(scmURL: packageURL)
+        case .search:
+            _ = try await client.search(
+                query: "foo",
+                registry: Self.availableRegistry,
+                observabilityScope: ObservabilitySystem.NOOP
+            )
+        case .availability:
+            _ = try await client.checkAvailability(registry: Self.availableRegistry)
+        }
+    }
+
+    private static func response(for request: HTTPClient.Request) throws -> HTTPClient.Response {
+        switch request.url {
+        case releasesURL:
+            return Self.respond(#"{"releases":{"1.1.1":{"url":"https://packages.example.com/mona/LinkedList/1.1.1"}}}"#)
+        case releaseURL:
+            return Self.respond(Self.versionMetadata)
+        case manifestURL:
+            return Self.respond(Self.manifest, contentType: "text/x-swift")
+        case identifiersURL:
+            return Self.respond(#"{"identifiers":["mona.LinkedList"]}"#)
+        case availabilityURL:
+            return Self.respond(#"{"capabilities":{"search":{}}}"#)
+        case searchURL:
+            return Self.respond(#"{"results":[],"total":0,"offset":0,"limit":20}"#)
+        default:
+            throw StringError("unexpected request: \(request.method) \(request.url)")
+        }
+    }
+
+    private static func respond(_ body: String, contentType: String = "application/json") -> HTTPClient.Response {
+        let data = Data(body.utf8)
+        return .init(
+            statusCode: 200,
+            headers: .init([
+                .init(name: "Content-Length", value: "\(data.count)"),
+                .init(name: "Content-Type", value: contentType),
+                .init(name: "Content-Version", value: "1"),
+            ]),
+            body: data
+        )
+    }
+
+    private static let versionMetadata = #"""
+    {
+        "id": "mona.LinkedList",
+        "version": "1.1.1",
+        "resources": [
+            {
+                "name": "source-archive",
+                "type": "application/zip",
+                "checksum": "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
+            }
+        ],
+        "metadata": {
+            "author": {
+                "name": "J. Appleseed"
+            }
+        }
+    }
+    """#
+
+    private static let manifest = """
+    // swift-tools-version:5.5
+    import PackageDescription
+
+    let package = Package(name: "LinkedList")
+    """
 }
 
 // MARK: - Sugar

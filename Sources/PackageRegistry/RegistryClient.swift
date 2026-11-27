@@ -1066,8 +1066,12 @@ public final class RegistryClient: AsyncCancellable {
     ) async throws {
         let wrapWithLoginFailed: (Error) -> Error = { RegistryError.loginFailed(url: loginURL, error: $0) }
 
+        var request = HTTPClient.Request(method: .post, url: loginURL)
+        // The login request includes the token. Never save this to disk.
+        request.options.cachePolicy = .never
+
         let response = try await self.send(
-            HTTPClient.Request(method: .post, url: loginURL),
+            request,
             intent: "logging-in",
             timeout: timeout,
             observabilityScope: observabilityScope,
@@ -1476,8 +1480,11 @@ public final class RegistryClient: AsyncCancellable {
     ) async throws -> HTTPClient.Response {
         let headers: HTTPClientHeaders = mediaType.map { ["Accept": self.acceptHeader(mediaType: $0)] } ?? [:]
 
+        var request = HTTPClient.Request(method: .get, url: url, headers: headers)
+        request.options.cachePolicy = .never
+
         return try await self.send(
-            HTTPClient.Request(method: .get, url: url, headers: headers),
+            request,
             intent: intent,
             timeout: timeout,
             observabilityScope: observabilityScope,

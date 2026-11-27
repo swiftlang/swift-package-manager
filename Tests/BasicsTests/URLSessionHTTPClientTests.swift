@@ -1266,6 +1266,95 @@ final class URLSessionHTTPClientTest: XCTestCase {
             )
         }
     }
+
+    func testAsyncResponseIsStoredInURLCacheByDefault() async throws {
+        let cache = Self.makeURLCache()
+        let httpClient = Self.makeCacheableHTTPClient(cache: cache)
+        let url = URL("http://async-cache-default-store-test")
+
+        _ = try await httpClient.execute(.init(method: .post, url: url))
+
+        XCTAssertNotNil(cache.cachedResponse(for: Self.urlRequest(method: .post, url: url)))
+    }
+
+    func testAsyncCachePolicyNeverDoesNotStoreResponseInURLCache() async throws {
+        let cache = Self.makeURLCache()
+        let httpClient = Self.makeCacheableHTTPClient(cache: cache)
+        let url = URL("http://async-cache-never-store-test")
+        var request = HTTPClient.Request(method: .post, url: url)
+        request.options.cachePolicy = .never
+
+        _ = try await httpClient.execute(request)
+
+        XCTAssertNil(cache.cachedResponse(for: Self.urlRequest(method: .post, url: url)))
+    }
+
+    func testAsyncTransportUsesProtocolCachePolicyByDefault() async throws {
+        let httpClient = Self.makeCacheableHTTPClient(cache: Self.makeURLCache())
+        let url = URL("http://async-cache-default-read-test")
+
+        _ = try await httpClient.execute(.init(method: .get, url: url))
+
+        XCTAssertEqual(CacheableURLProtocol.receivedRequests[url]?.cachePolicy, .useProtocolCachePolicy)
+    }
+
+    func testAsyncCachePolicyNeverAsksTransportToIgnoreURLCache() async throws {
+        let httpClient = Self.makeCacheableHTTPClient(cache: Self.makeURLCache())
+        let url = URL("http://async-cache-never-read-test")
+        var request = HTTPClient.Request(method: .get, url: url)
+        request.options.cachePolicy = .never
+
+        _ = try await httpClient.execute(request)
+
+        XCTAssertEqual(CacheableURLProtocol.receivedRequests[url]?.cachePolicy, .reloadIgnoringLocalCacheData)
+    }
+
+    private static func makeURLCache() -> URLCache {
+        URLCache(memoryCapacity: 10_000_000, diskCapacity: 0, directory: nil)
+    }
+
+    private static func makeCacheableHTTPClient(cache: URLCache) -> HTTPClient {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [CacheableURLProtocol.self]
+        configuration.urlCache = cache
+        let urlSession = URLSessionHTTPClient(configuration: configuration)
+        return HTTPClient(implementation: urlSession.execute)
+    }
+
+    private static func urlRequest(method: HTTPMethod, url: URL) -> URLRequest {
+        var request = URLRequest(url: url)
+        request.httpMethod = method.string
+        return request
+    }
+}
+
+private final class CacheableURLProtocol: URLProtocol {
+    static let body = Data("network".utf8)
+    static let headers = ["Cache-Control": "max-age=3600"]
+    static let receivedRequests = ThreadSafeKeyValueStore<URL, URLRequest>()
+
+    override class func canInit(with _: URLRequest) -> Bool {
+        true
+    }
+
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest {
+        request
+    }
+
+    override func startLoading() {
+        Self.receivedRequests[self.request.url!] = self.request
+        let response = HTTPURLResponse(
+            url: self.request.url!,
+            statusCode: 200,
+            httpVersion: "1.1",
+            headerFields: Self.headers
+        )!
+        self.client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .allowed)
+        self.client?.urlProtocol(self, didLoad: Self.body)
+        self.client?.urlProtocolDidFinishLoading(self)
+    }
+
+    override func stopLoading() {}
 }
 
 private class MockURLProtocol: URLProtocol {
