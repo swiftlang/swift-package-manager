@@ -543,10 +543,12 @@ public final class PIFBuilder {
             let rootPackagesPaths = rootPackagesSorted.map { $0.path }
             let ids: String = rootPackagesPaths.map { $0.pathString}.joined(separator: ",")
             let names = rootPackagesSorted.map { $0.manifest.displayName }.joined(separator: ",")
+            // Root packages on different Windows drives have no common parent; anchor on the first one.
+            let workspacePath = try getCommonParentDirectory(paths: rootPackagesPaths) ?? rootPackagesPaths[0]
             let workspace = PIF.Workspace(
                 id: "Workspace:\(ids)",
                 name: names,
-                path: try getCommonParentDirectory(paths: rootPackagesPaths),
+                path: workspacePath,
                 projects: pifProjects
             )
             return (PIF.TopLevelObject(workspace: workspace), modulesAndProducts)
