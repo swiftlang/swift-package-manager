@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import struct TSCBasic.ProcessEnvironmentBlock
+public import struct TSCBasic.ProcessEnvironmentBlock
 
 import Dispatch
 

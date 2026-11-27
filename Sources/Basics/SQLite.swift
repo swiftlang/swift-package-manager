@@ -11,20 +11,20 @@
 //===----------------------------------------------------------------------===//
 
 import TSCBasic
-import Foundation
+package import Foundation
 import Synchronization
 
-#if SWIFT_PACKAGE && (os(Windows) || os(Android))
+#if canImport(Darwin)
+#if USE_IMPL_ONLY_IMPORTS
+@_implementationOnly import SQLite3
+#else
+import SQLite3
+#endif
+#else
 #if USE_IMPL_ONLY_IMPORTS
 @_implementationOnly import SwiftToolchainCSQLite
 #else
 import SwiftToolchainCSQLite
-#endif
-#else
-#if USE_IMPL_ONLY_IMPORTS
-@_implementationOnly import SPMSQLite3
-#else
-import SPMSQLite3
 #endif
 #endif
 

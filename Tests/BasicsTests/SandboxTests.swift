@@ -247,7 +247,7 @@ final class SandboxTest: XCTestCase {
 }
 
 extension Sandbox {
-    public static func apply(
+    static func apply(
         command: [String],
         strictness: Strictness = .default,
         writableDirectories: [AbsolutePath] = [],

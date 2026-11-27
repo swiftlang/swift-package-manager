@@ -10,14 +10,14 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+public import Basics
 import _Concurrency
 import Dispatch
-import PackageGraph
-import PackageLoading
-import PackageModel
+public import PackageGraph
+public import PackageLoading
+public import PackageModel
 
-import struct TSCUtility.Version
+public import struct TSCUtility.Version
 
 /// Local file system package container.
 ///
@@ -109,6 +109,11 @@ public struct FileSystemPackageContainer: PackageContainer {
         assert(boundVersion == .unversioned, "Unexpected bound version \(boundVersion)")
         let manifest = try await loadManifest()
         return manifest.traits
+    }
+
+    public func getDependencyTraitRequests(at boundVersion: BoundVersion, _ enabledTraits: EnabledTraits) async throws -> [PackageContainerConstraint] {
+        assert(boundVersion == .unversioned, "Unexpected bound version \(boundVersion)")
+        return try await loadManifest().dependencyTraitRequests(enabledTraits)
     }
 
     public func isToolsVersionCompatible(at version: Version) -> Bool {

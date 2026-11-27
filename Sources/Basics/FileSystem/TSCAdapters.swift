@@ -10,17 +10,17 @@
 //
 //===----------------------------------------------------------------------===//
 
-import func TSCBasic.getEnvSearchPaths
-import func TSCBasic.lookupExecutablePath
-import func TSCBasic.makeDirectories
-import func TSCBasic.resolveSymlinks
-import func TSCBasic.walk
-import func TSCBasic.withTemporaryDirectory
+public import func TSCBasic.getEnvSearchPaths
+public import func TSCBasic.lookupExecutablePath
+public import func TSCBasic.makeDirectories
+public import func TSCBasic.resolveSymlinks
+public import func TSCBasic.walk
+public import func TSCBasic.withTemporaryDirectory
 
-import struct TSCBasic.FileSystemError
-import class TSCBasic.LocalFileOutputByteStream
-import enum TSCBasic.ProcessEnv
-import class TSCBasic.RecursibleDirectoryContentsGenerator
+public import struct TSCBasic.FileSystemError
+public import class TSCBasic.LocalFileOutputByteStream
+public import enum TSCBasic.ProcessEnv
+public import class TSCBasic.RecursibleDirectoryContentsGenerator
 
 public func resolveSymlinks(_ path: AbsolutePath) throws -> AbsolutePath {
     try AbsolutePath(TSCBasic.resolveSymlinks(path.underlying))

@@ -10,16 +10,16 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+public import Basics
 import func XCTest.XCTAssertTrue
 import func XCTest.XCTAssertEqual
 import func XCTest.XCTFail
 
-import struct TSCBasic.StringError
-import class TSCBasic.BufferedOutputByteStream
+public import struct TSCBasic.StringError
+public import class TSCBasic.BufferedOutputByteStream
 
 import TSCTestSupport
-import Testing
+public import Testing
 
 extension ObservabilitySystem {
     public static func makeForTesting(verbose: Bool = true) -> TestingObservability {

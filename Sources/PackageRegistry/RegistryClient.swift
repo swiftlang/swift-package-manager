@@ -10,18 +10,18 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+public import Basics
 import _Concurrency
-import Dispatch
-import Foundation
-import PackageFingerprint
+public import Dispatch
+public import Foundation
+public import PackageFingerprint
 import PackageLoading
-import PackageModel
-import PackageSigning
+public import PackageModel
+public import PackageSigning
 
-import protocol TSCBasic.HashAlgorithm
+public import protocol TSCBasic.HashAlgorithm
 
-import struct TSCUtility.Version
+public import struct TSCUtility.Version
 
 public protocol RegistryClientDelegate {
     func onUnsigned(registry: Registry, package: PackageIdentity, version: Version, completion: (Bool) -> Void)

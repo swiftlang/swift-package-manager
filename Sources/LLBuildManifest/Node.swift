@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+public import Basics
 
 public struct Node: Hashable, Codable {
     public enum Kind: String, Hashable, Codable {

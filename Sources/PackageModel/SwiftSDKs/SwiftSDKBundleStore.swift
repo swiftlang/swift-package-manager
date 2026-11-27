@@ -12,11 +12,11 @@
 
 // FIXME: can't write `import actor Basics.HTTPClient`, importing the whole module because of that :(
 @_spi(SwiftPMInternal)
-import Basics
-import struct Foundation.URL
-import protocol TSCBasic.FileSystem
-import struct TSCBasic.RegEx
-import protocol TSCUtility.ProgressAnimationProtocol
+public import Basics
+public import struct Foundation.URL
+public import protocol TSCBasic.FileSystem
+public import struct TSCBasic.RegEx
+public import protocol TSCUtility.ProgressAnimationProtocol
 
 public final class SwiftSDKBundleStore {
     public enum Output: Equatable, CustomStringConvertible {

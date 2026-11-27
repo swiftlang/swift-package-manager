@@ -10,8 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-import struct TSCUtility.Version
-import struct SourceControl.Revision
+public import struct TSCUtility.Version
+public import struct SourceControl.Revision
 
 /// A checkout state represents the current state of a repository.
 ///

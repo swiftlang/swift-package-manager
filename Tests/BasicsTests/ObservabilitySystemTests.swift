@@ -344,10 +344,10 @@ struct ObservabilitySystemTest {
     }
 
     struct Collector: ObservabilityHandlerProvider, DiagnosticsHandler {
-        public let verbose: Bool
+        let verbose: Bool
         private let _diagnostics = ThreadSafeArrayStore<Diagnostic>()
 
-        public init(verbose: Bool = false) {
+        init(verbose: Bool = false) {
             self.verbose = verbose
         }
 
@@ -378,7 +378,7 @@ struct ObservabilitySystemTest {
 }
 
 extension ObservabilityMetadata {
-    public var testKey1: String? {
+    var testKey1: String? {
         get {
             self[TestKey1.self]
         }
@@ -387,7 +387,7 @@ extension ObservabilityMetadata {
         }
     }
 
-    public var testKey2: Int? {
+    var testKey2: Int? {
         get {
             self[TestKey2.self]
         }
@@ -396,7 +396,7 @@ extension ObservabilityMetadata {
         }
     }
 
-    public var testKey3: Bool? {
+    var testKey3: Bool? {
         get {
             self[TestKey3.self]
         }

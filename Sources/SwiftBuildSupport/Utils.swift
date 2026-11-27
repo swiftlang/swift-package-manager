@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Foundation
-import Basics
+public import Basics
 import TSCBasic
 
 extension String {

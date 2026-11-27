@@ -14,22 +14,22 @@ import _Concurrency
 import Dispatch
 import Foundation
 
-import SPMBuildCore
-import Basics
+public import SPMBuildCore
+public import Basics
 import CoreCommands
 import PackageGraph
 import PackageModel
 import SourceControl
 import Workspace
 
-import protocol TSCBasic.DiagnosticLocation
-import class Basics.AsyncProcess
-import struct Basics.AsyncProcessResult
-import func TSCBasic.withTemporaryFile
+public import protocol TSCBasic.DiagnosticLocation
+public import class Basics.AsyncProcess
+public import struct Basics.AsyncProcessResult
+public import func TSCBasic.withTemporaryFile
 
-import enum TSCUtility.Diagnostics
-import struct TSCUtility.SerializedDiagnostics
-import var TSCUtility.verbosity
+public import enum TSCUtility.Diagnostics
+public import struct TSCUtility.SerializedDiagnostics
+public import var TSCUtility.verbosity
 
 /// Helper for emitting a JSON API baseline for a module.
 struct APIDigesterBaselineDumper {

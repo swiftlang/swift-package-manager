@@ -10,12 +10,12 @@
 //
 //===----------------------------------------------------------------------===//
 import XCTest
-import Testing
+public import Testing
 
-import PackageGraph
-import PackageModel
+public import PackageGraph
+public import PackageModel
 
-import struct TSCUtility.Version
+public import struct TSCUtility.Version
 
 public struct MockDependencyGraph {
     public let name: String

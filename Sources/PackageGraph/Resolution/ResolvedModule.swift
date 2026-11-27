@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import PackageModel
+public import PackageModel
 
 import struct Basics.IdentifiableSet
 
@@ -288,7 +288,7 @@ extension ResolvedModule.Dependency: Hashable {
 
 extension ResolvedModule: Identifiable {
     /// Resolved module identity that uniquely identifies it in a modules graph.
-    public struct ID: Hashable {
+    public struct ID: Hashable, Sendable {
         @available(*, deprecated, renamed: "moduleName")
         public var targetName: String { self.moduleName }
 

@@ -10,9 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+package import Basics
 import Foundation
-import SwiftBuild
+package import SwiftBuild
 
 /// Streams build task events to a file in Trace Event JSON Array Format. The format is documented at:
 /// https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU
@@ -129,7 +129,7 @@ package final class TraceEventsWriter {
     package init(path: Basics.AbsolutePath) throws {
         let url = URL(fileURLWithPath: path.pathString)
         if !FileManager.default.fileExists(atPath: path.pathString) {
-            FileManager.default.createFile(atPath: path.pathString, contents: nil)
+            _ = FileManager.default.createFile(atPath: path.pathString, contents: nil)
         }
         let handle = try FileHandle(forWritingTo: url)
         try handle.truncate(atOffset: 0)

@@ -11,15 +11,15 @@
 //===----------------------------------------------------------------------===//
 
 @_spi(SwiftPMInternal)
-import Basics
+public import Basics
 
-import Foundation
+public import Foundation
 import PackageGraph
-import PackageModel
+public import PackageModel
 
-import struct TSCBasic.ByteString
-import struct Basics.AsyncProcessResult
-import class Basics.AsyncProcess
+public import struct TSCBasic.ByteString
+public import struct Basics.AsyncProcessResult
+public import class Basics.AsyncProcess
 
 import struct TSCUtility.SerializedDiagnostics
 

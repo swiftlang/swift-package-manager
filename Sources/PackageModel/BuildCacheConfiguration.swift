@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+public import Basics
 
 public struct BuildCacheConfiguration: Equatable, Sendable, Encodable {
     public enum SizeLimit: Equatable, Sendable, Encodable {

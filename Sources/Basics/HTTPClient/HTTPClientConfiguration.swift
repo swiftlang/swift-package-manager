@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Foundation
+public import Foundation
 #if canImport(FoundationNetworking)
 import FoundationNetworking
 #endif
@@ -91,10 +91,9 @@ public enum HTTPClientRetryStrategy: Sendable {
             return transientStatusCodes.contains(response.statusCode)
         case .failure(let error as URLError):
             return transientURLErrorCodes.contains(error.errorCode)
-        case .failure(let error as NSError):
+        case .failure(let error):
+            let error = error as NSError
             return error.domain == NSURLErrorDomain && transientURLErrorCodes.contains(error.code)
-        case .failure:
-            return false
         }
     }
 }

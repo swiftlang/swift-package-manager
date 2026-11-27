@@ -11,9 +11,9 @@
 //===----------------------------------------------------------------------===//
 
 import Foundation
-import struct TSCBasic.ByteString
-import struct TSCBasic.FileInfo
-import enum TSCBasic.FileMode
+public import struct TSCBasic.ByteString
+public import struct TSCBasic.FileInfo
+public import enum TSCBasic.FileMode
 
 private enum DirectoryNode: Codable {
     case directory(name: String, isSymlink: Bool, children: [DirectoryNode])

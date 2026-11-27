@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+package import Basics
 
 package protocol SymbolProvider {
     func symbols(for: AbsolutePath, symbols: inout ReferencedSymbols, recordUndefined: Bool) async throws

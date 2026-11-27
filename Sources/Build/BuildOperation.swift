@@ -12,19 +12,18 @@
 
 import _Concurrency
 @_spi(SwiftPMInternal)
-import Basics
-import Foundation
-import LLBuildManifest
-import PackageGraph
-import PackageLoading
-import PackageModel
-import SPMBuildCore
+public import Basics
+public import Foundation
+public import LLBuildManifest
+public import PackageGraph
+public import PackageLoading
+package import PackageModel
+public import SPMBuildCore
 import SPMLLBuild
 
-import class Basics.AsyncProcess
-import class TSCBasic.DiagnosticsEngine
-import protocol TSCBasic.OutputByteStream
-import struct TSCBasic.RegEx
+public import class Basics.AsyncProcess
+public import class TSCBasic.DiagnosticsEngine
+public import protocol TSCBasic.OutputByteStream
 
 import enum TSCUtility.Diagnostics
 
@@ -951,7 +950,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         guard let _ = self._buildPlan?.targets.first(where: { $0.module.name == target }) else { return nil }
 
         // Check for cases involving modules that cannot be found.
-        if let importedModule = try? RegEx(pattern: "no such module '(.+)'").matchGroups(in: message).first?.first {
+        if let importedModule = message.firstMatch(of: #/no such module '(.+)'/#.matchingSemantics(.unicodeScalar)).map({ String($0.output.1) }) {
             // A target is importing a module that can't be found.  We take a look at the build plan and see if can offer any advice.
 
             // Look for a target with the same module name as the one that's being imported.

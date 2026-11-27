@@ -10,19 +10,19 @@
 //
 //===----------------------------------------------------------------------===//
 #if canImport(LanguageServerProtocolTransport)
-import Basics
+public import Basics
 import SwiftBuild
 import Foundation
 import SPMBuildCore
-import SwiftBuildSupport
+public import SwiftBuildSupport
 import SwiftBuild
 import SWBBuildService
-import Workspace
+public import Workspace
 import BuildServerProtocol
-import LanguageServerProtocol
-import LanguageServerProtocolTransport
+public import LanguageServerProtocol
+public import LanguageServerProtocolTransport
 import PackageModel
-import ToolsProtocolsSwiftExtensions
+public import ToolsProtocolsSwiftExtensions
 
 // Remove these extensions once they've been added to swift-tools-protocols
 package extension Connection {
@@ -247,7 +247,7 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
         case let request as RequestAndReply<BuildShutdownRequest>:
             await request.reply {
                 _ = try await connectionToUnderlyingBuildServer.send(request.params)
-                return await shutdown()
+                return shutdown()
             }
         case let request as RequestAndReply<BuildTargetPrepareRequest>:
             await request.reply {
@@ -644,6 +644,7 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
                         data: WorkDoneProgressTask(title: "SwiftPM: Reloading Package").encodeToLSPAny()
                     )
                 )
+                buildSystem.invalidatePackageGraphCache()
                 let result = try await buildSystem.generatePIFAndAccompanyingMetadata(preserveStructure: false)
                 try localFileSystem.writeIfChanged(path: buildSystem.buildParameters.pifManifest, string: result.pif)
                 self.pifGenerationInputs = result.inputs

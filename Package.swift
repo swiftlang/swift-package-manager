@@ -85,13 +85,8 @@ let swiftPMProduct = (
 
 #if os(Windows)
 let includeDynamicLibrary: Bool = false
-let systemSQLitePkgConfig: String? = nil
 #else
 let includeDynamicLibrary: Bool = true
-var systemSQLitePkgConfig: String? = "sqlite3"
-if ProcessInfo.processInfo.environment["SWIFTCI_INSTALL_RPATH_OS"] == "android" {
-    systemSQLitePkgConfig = nil
-}
 #endif
 
 /** An array of products which have two versions listed: one dynamically linked, the other with the
@@ -153,8 +148,10 @@ if useSystemSDKDeps {
     swiftSystemDeps = [
         .product(name: "SystemPackage", package: "swift-system"),
     ]
+    // Apple platforms use the `SQLite3` module provided by the SDK. Everywhere else, SQLite is
+    // provided by swift-toolchain-sqlite, in the same manner as llbuild.
     swiftToolchainSQLiteDeps = [
-        .product(name: "SwiftToolchainCSQLite", package: "swift-toolchain-sqlite", condition: .when(platforms: [.windows, .android])),
+        .product(name: "SwiftToolchainCSQLite", package: "swift-toolchain-sqlite", condition: .when(platforms: [.linux, .windows, .android, .openbsd, .custom("freebsd")])),
     ]
 }
 
@@ -250,8 +247,6 @@ let package = Package(
 
         // MARK: SwiftPM specific support libraries
 
-        .systemLibrary(name: "SPMSQLite3", pkgConfig: systemSQLitePkgConfig),
-
         .target(
             name: "_AsyncFileSystem",
             dependencies: swiftSystemDeps,
@@ -267,7 +262,6 @@ let package = Package(
             name: "Basics",
             dependencies: [
                 "_AsyncFileSystem",
-                .target(name: "SPMSQLite3", condition: .when(platforms: [.macOS, .iOS, .tvOS, .watchOS, .visionOS, .macCatalyst, .linux, .openbsd, .custom("freebsd")])),
                 .product(name: "DequeModule", package: "swift-collections"),
                 .product(name: "OrderedCollections", package: "swift-collections"),
                 .product(name: "Subprocess", package: "swift-subprocess"),
@@ -1165,20 +1159,20 @@ if ProcessInfo.processInfo.environment["SWIFTPM_LLBUILD_FWK"] == nil {
 
 if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
     package.dependencies += [
-        // These need to match the versions in the swiftlang/swift repo,
+        // The minimum versions need to match the versions in the swiftlang/swift repo,
         // utils/update_checkout/update-checkout-config.json
         // They are used to build the official swift toolchain.
         .package(url: "https://github.com/swiftlang/swift-syntax.git", branch: relatedDependenciesBranch),
-        .package(url: "https://github.com/apple/swift-argument-parser.git", revision: "1.8.2"),
+        .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.8.2"),
         .package(url: "https://github.com/swiftlang/swift-subprocess.git", from: "1.0.0"),
-        .package(url: "https://github.com/apple/swift-collections.git", revision: "1.1.6"),
-        .package(url: "https://github.com/apple/swift-certificates.git", revision: "1.10.1"),
+        .package(url: "https://github.com/apple/swift-collections.git", from: "1.1.6"),
+        .package(url: "https://github.com/apple/swift-certificates.git", from: "1.10.1"),
     ]
     if !useSystemSDKDeps {
         package.dependencies += [
-            .package(url: "https://github.com/apple/swift-crypto.git", revision: "3.12.5"),
-            .package(url: "https://github.com/apple/swift-system.git", revision: "1.8.1"),
-            .package(url: "https://github.com/swiftlang/swift-toolchain-sqlite.git", revision: "1.0.9"),
+            .package(url: "https://github.com/apple/swift-crypto.git", from: "3.12.5"),
+            .package(url: "https://github.com/apple/swift-system.git", from: "1.8.1"),
+            .package(url: "https://github.com/swiftlang/swift-toolchain-sqlite.git", from: "1.0.9"),
         ]
     }
     if !swiftDriverDeps.isEmpty {
@@ -1215,6 +1209,15 @@ if ProcessInfo.processInfo.environment["ENABLE_APPLE_PRODUCT_TYPES"] == "1" {
     for target in package.targets.filter({ $0.type == .regular || $0.type == .test }) {
         target.swiftSettings = (target.swiftSettings ?? []) + [ .define("ENABLE_APPLE_PRODUCT_TYPES") ]
     }
+}
+
+/// Make imports `internal` by default (with explicit access levels where a wider one is needed) in every target that
+/// contains Swift sources.
+for target in package.targets.filter({ $0.type == .regular || $0.type == .executable || $0.type == .test }) {
+    target.swiftSettings = (target.swiftSettings ?? []) + [
+        .enableExperimentalFeature("AccessLevelOnImport"),
+        .enableExperimentalFeature("InternalImportsByDefault"),
+    ]
 }
 
 if !shouldUseSwiftBuildFramework {

@@ -10,13 +10,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+public import Basics
 import Dispatch
 import class Foundation.NSLock
-import PackageFingerprint
-import PackageModel
+public import PackageFingerprint
+public import PackageModel
 
-import struct TSCUtility.Version
+public import struct TSCUtility.Version
 
 public class MockPackageFingerprintStorage: PackageFingerprintStorage {
     private var packageFingerprints: [PackageIdentity: [Version: [Fingerprint

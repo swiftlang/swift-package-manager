@@ -10,13 +10,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+public import Basics
 import Foundation
-import PackageModel
+public import PackageModel
 
-import enum TSCBasic.JSON
+public import enum TSCBasic.JSON
 
-import struct TSCUtility.Version
+public import struct TSCUtility.Version
 
 @available(*, deprecated, renamed: "PackageResolvedStore", message: "Renamed for consistency with the actual name of the feature")
 public typealias PinsStore = ResolvedPackagesStore

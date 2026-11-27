@@ -10,12 +10,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+public import Basics
 import Dispatch
 import struct Foundation.URL
-import PackageModel
+public import PackageModel
 
-import protocol TSCBasic.Closable
+public import protocol TSCBasic.Closable
 
 public struct PackageIndexAndCollections: Closable {
     private let index: PackageIndexProtocol

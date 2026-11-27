@@ -12,10 +12,10 @@
 
 import Foundation
 
-import PackageModel
+public import PackageModel
 import SourceControl
 
-import struct TSCUtility.Version
+public import struct TSCUtility.Version
 
 extension PackageCollectionsModel {
     public typealias TargetListResult = [TargetListItem]

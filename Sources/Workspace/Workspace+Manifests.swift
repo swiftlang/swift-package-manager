@@ -12,39 +12,39 @@
 
 import _Concurrency
 
-import struct Basics.AbsolutePath
-import func Basics.depthFirstSearch
-import struct Basics.Diagnostic
-import struct Basics.InternalError
-import class Basics.ObservabilityScope
-import struct Basics.SwiftVersion
-import class Basics.ThreadSafeKeyValueStore
+public import struct Basics.AbsolutePath
+public import func Basics.depthFirstSearch
+public import struct Basics.Diagnostic
+public import struct Basics.InternalError
+public import class Basics.ObservabilityScope
+public import struct Basics.SwiftVersion
+public import class Basics.ThreadSafeKeyValueStore
 import class Dispatch.DispatchGroup
 import struct Dispatch.DispatchTime
-import struct OrderedCollections.OrderedDictionary
-import struct OrderedCollections.OrderedSet
-import protocol PackageGraph.CustomPackageContainer
-import struct PackageGraph.GraphLoadingNode
-import struct PackageGraph.PackageContainerConstraint
-import struct PackageGraph.PackageGraphRoot
+public import struct OrderedCollections.OrderedDictionary
+public import struct OrderedCollections.OrderedSet
+public import protocol PackageGraph.CustomPackageContainer
+public import struct PackageGraph.GraphLoadingNode
+public import struct PackageGraph.PackageContainerConstraint
+public import struct PackageGraph.PackageGraphRoot
 import class PackageLoading.ManifestLoader
 import struct PackageLoading.ManifestValidator
 import struct PackageLoading.ToolsVersionParser
-import struct PackageModel.EnabledTrait
-import struct PackageModel.EnabledTraits
-import enum PackageModel.TraitError
-import class PackageModel.Manifest
-import struct PackageModel.PackageIdentity
-import struct PackageModel.PackageReference
-import enum PackageModel.ProductFilter
-import struct PackageModel.ToolsVersion
-import enum PackageModel.TraitConfiguration
-import protocol TSCBasic.FileSystem
-import func TSCBasic.findCycle
-import struct TSCBasic.KeyedPair
-import struct TSCBasic.StringError
-import func TSCBasic.topologicalSort
-import func TSCBasic.transitiveClosure
+public import struct PackageModel.EnabledTrait
+public import struct PackageModel.EnabledTraits
+public import enum PackageModel.TraitError
+public import class PackageModel.Manifest
+public import struct PackageModel.PackageIdentity
+public import struct PackageModel.PackageReference
+public import enum PackageModel.ProductFilter
+public import struct PackageModel.ToolsVersion
+public import enum PackageModel.TraitConfiguration
+public import protocol TSCBasic.FileSystem
+public import func TSCBasic.findCycle
+public import struct TSCBasic.KeyedPair
+public import struct TSCBasic.StringError
+public import func TSCBasic.topologicalSort
+public import func TSCBasic.transitiveClosure
 import enum TSCUtility.Diagnostics
 import struct TSCUtility.Version
 
@@ -658,7 +658,10 @@ extension Workspace {
 
         var allNodes = OrderedDictionary<PackageIdentity, GraphLoadingNode>()
 
-        do {
+        // A manifest loaded late in the walk can enable traits on a package already visited, so walk
+        // again until no visited package's traits change.
+        repeat {
+            allNodes = [:]
             let manifestGraphRoots = try topLevelManifests.map { identity, manifest in
                 return try KeyedPair(
                     GraphLoadingNode(
@@ -679,19 +682,30 @@ extension Workspace {
             } onDuplicate: { _, _ in
                 // Nothing we need to compute here.
             }
-        }
 
-        // Second pass: Update enabled traits for dependencies now that we have all manifests loaded
-        // This resolves the race condition where parents might set traits for dependencies
-        // before the dependency manifest is loaded and its default traits are known.
-        let allManifests = allNodes.mapValues(\.manifest)
-        for (_, manifest) in allManifests {
-            try await updateEnabledTraits(for: manifest, observabilityScope: observabilityScope)
+            // Second pass: update enabled traits now that every manifest is loaded. A parent may set traits
+            // before the dependency's default traits are known, and a parent whose traits grow later in a
+            // pass conditionally enables traits on dependencies already visited, so repeat until stable.
+            let allManifests = allNodes.mapValues(\.manifest)
+            var previousTraits: OrderedDictionary<PackageIdentity, Set<String>> = [:]
+            var currentTraits = allManifests.mapValues { self.enabledTraitsMap[$0].names }
+            while currentTraits != previousTraits {
+                previousTraits = currentTraits
+                for (_, manifest) in allManifests {
+                    try await updateEnabledTraits(for: manifest, observabilityScope: observabilityScope)
+                }
+                currentTraits = allManifests.mapValues { self.enabledTraitsMap[$0].names }
+            }
+        } while allNodes.contains { identity, node in
+            let traits = topLevelManifests.keys.contains(identity) ?
+                self.enabledTraitsMap[node.manifest] :
+                self.enabledTraitsMap[identity]
+            return traits != node.enabledTraits
         }
 
         // Now that every parent has registered its edges, each package's enabled traits are final
         // and can be reported on.
-        self.reportTraitFallbacks(for: allManifests.values, observabilityScope: observabilityScope)
+        self.reportTraitFallbacks(for: allNodes.values.map(\.manifest), observabilityScope: observabilityScope)
 
         let dependencyManifests = allNodes.filter { !$0.value.manifest.packageKind.isRoot }
 

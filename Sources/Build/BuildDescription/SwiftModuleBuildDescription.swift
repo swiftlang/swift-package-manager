@@ -10,18 +10,18 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+public import Basics
 
 import Foundation
-import PackageGraph
+public import PackageGraph
 import PackageLoading
 import TSCUtility
 
 @_spi(SwiftPMInternal)
-import PackageModel
+public import PackageModel
 
 @_spi(SwiftPMInternal)
-import SPMBuildCore
+public import SPMBuildCore
 
 #if USE_IMPL_ONLY_IMPORTS
 @_implementationOnly import DriverSupport
@@ -647,7 +647,7 @@ public final class SwiftModuleBuildDescription {
 
         // suppress warnings if the package is remote
         if self.package.isRemote {
-            args = try WarningControlFlags.filterSwiftWarningControlFlags(args)
+            args = WarningControlFlags.filterSwiftWarningControlFlags(args)
             args += ["-suppress-warnings"]
         }
 

@@ -26,7 +26,7 @@ import Crypto
 import X509
 #endif
 
-import Basics
+public import Basics
 import TSCBasic
 
 public protocol SigningIdentity {}

@@ -16,12 +16,12 @@
 ///
 // -----------------------------------------------------------------------------
 
-import Basics
-import PackageModel
+public import Basics
+public import PackageModel
 import PackageLoading
 
-import struct TSCBasic.ByteString
-import class TSCBasic.BufferedOutputByteStream
+public import struct TSCBasic.ByteString
+public import class TSCBasic.BufferedOutputByteStream
 
 public struct ToolsVersionSpecificationWriter {
     // designed to be used as a static utility

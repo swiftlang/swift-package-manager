@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import _Concurrency
-import Dispatch
+package import Dispatch
 import Foundation
 
 #if os(Windows)
@@ -31,19 +31,17 @@ import func TSCclibc.SPM_posix_spawn_file_actions_addchdir_np
 @_implementationOnly
 import func TSCclibc.SPM_posix_spawnp
 #else
-// `package` rather than `private`: importing SPM_posix_spawnp brings TSCclibc's `pid_t` into scope,
-// which then backs `package typealias ProcessID` below.
-package import func TSCclibc.SPM_posix_spawn_file_actions_addchdir_np_supported
-package import func TSCclibc.SPM_posix_spawn_file_actions_addchdir_np
-package import func TSCclibc.SPM_posix_spawnp
+import func TSCclibc.SPM_posix_spawn_file_actions_addchdir_np_supported
+import func TSCclibc.SPM_posix_spawn_file_actions_addchdir_np
+import func TSCclibc.SPM_posix_spawnp
 #endif // #if USE_IMPL_ONLY_IMPORTS
 #endif
 
-import class TSCBasic.CStringArray
-import class TSCBasic.LocalFileOutputByteStream
-import enum TSCBasic.SystemError
-import class TSCBasic.Thread
-import protocol TSCBasic.WritableByteStream
+package import class TSCBasic.CStringArray
+package import class TSCBasic.LocalFileOutputByteStream
+package import enum TSCBasic.SystemError
+package import class TSCBasic.Thread
+package import protocol TSCBasic.WritableByteStream
 
 /// Process result data which is available after process termination.
 package struct AsyncProcessResult: CustomStringConvertible, Sendable {
@@ -258,10 +256,13 @@ package final class AsyncProcess {
     }
 
     /// Typealias for process id type.
+    ///
+    /// This is spelled with the underlying integer types (`pid_t` and `DWORD`) so that exposing it in package API does
+    /// not depend on which platform module happens to provide those typealiases.
     #if !os(Windows)
-    package typealias ProcessID = pid_t
+    package typealias ProcessID = Int32
     #else
-    package typealias ProcessID = DWORD
+    package typealias ProcessID = UInt32
     #endif
 
     /// Typealias for stdout/stderr output closure.
@@ -1349,23 +1350,3 @@ extension AsyncProcessResult.Error: CustomStringConvertible {
         }
     }
 }
-
-#if os(Windows)
-extension FileHandle: WritableByteStream {
-    package var position: Int {
-        Int(offsetInFile)
-    }
-
-    package func write(_ byte: UInt8) {
-        self.write(Data([byte]))
-    }
-
-    package func write(_ bytes: some Collection<UInt8>) {
-        self.write(Data(bytes))
-    }
-
-    package func flush() {
-        synchronizeFile()
-    }
-}
-#endif

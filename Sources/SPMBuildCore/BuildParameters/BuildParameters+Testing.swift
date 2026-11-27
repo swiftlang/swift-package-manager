@@ -10,8 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-import struct Basics.AbsolutePath
-import struct Basics.Triple
+public import struct Basics.AbsolutePath
+public import struct Basics.Triple
 import enum PackageModel.BuildConfiguration
 
 extension BuildParameters {

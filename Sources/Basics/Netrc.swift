@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Foundation
+public import Foundation
 
 /// Representation of Netrc configuration
 public struct Netrc: Sendable {

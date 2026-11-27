@@ -11,14 +11,14 @@
 //===----------------------------------------------------------------------===//
 
 @_spi(SwiftPMInternal)
-import Basics
+public import Basics
 import Foundation
 @_spi(SwiftPMInternal)
-import SPMBuildCore
+public import SPMBuildCore
 import enum TSCUtility.Diagnostics
 import SWBBuildService
-import SwiftBuild
-import protocol TSCBasic.OutputByteStream
+public import SwiftBuild
+public import protocol TSCBasic.OutputByteStream
 
 
 /// Handler for SwiftBuildMessage events sent by the SWBBuildOperation.

@@ -10,8 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-@_spi(SwiftPMInternal) import Basics
-@_spi(SwiftPMInternal) import SPMBuildCore
+@_spi(SwiftPMInternal) public import Basics
+@_spi(SwiftPMInternal) public import SPMBuildCore
 
 public struct PluginConfiguration {
     /// Entity responsible for compiling and running plugin scripts.

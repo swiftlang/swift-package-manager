@@ -10,8 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-import struct Basics.SourceControlURL
-import struct Foundation.URL
+public import struct Basics.SourceControlURL
+public import struct Foundation.URL
 import struct TSCUtility.Version
 
 

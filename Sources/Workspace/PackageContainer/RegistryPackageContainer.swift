@@ -10,16 +10,16 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+public import Basics
 import _Concurrency
 import Dispatch
-import PackageGraph
-import PackageLoading
-import PackageModel
-import PackageRegistry
+public import PackageGraph
+public import PackageLoading
+public import PackageModel
+public import PackageRegistry
 import TSCBasic
 
-import struct TSCUtility.Version
+public import struct TSCUtility.Version
 
 public class RegistryPackageContainer: PackageContainer {
     public let package: PackageReference
@@ -134,6 +134,13 @@ public class RegistryPackageContainer: PackageContainer {
         }
         let manifest = try await self.loadManifest(version: version)
         return manifest.traits
+    }
+
+    public func getDependencyTraitRequests(at boundVersion: BoundVersion, _ enabledTraits: EnabledTraits) async throws -> [PackageContainerConstraint] {
+        guard case .version(let version) = boundVersion else {
+            throw InternalError("getDependencyTraitRequests expects an exact version")
+        }
+        return try await self.loadManifest(version: version).dependencyTraitRequests(enabledTraits)
     }
 
     // marked internal for testing

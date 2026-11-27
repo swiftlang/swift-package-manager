@@ -10,10 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
-import class Foundation.ProcessInfo
-import PackageModel
-import PackageGraph
+public import Basics
+public import class Foundation.ProcessInfo
+public import PackageModel
+public import PackageGraph
 import TSCBasic
 
 public struct BuildParameters: Encodable {

@@ -21,7 +21,7 @@ import PackageModel
 import SourceControl
 import Synchronization
 
-import struct TSCBasic.RegEx
+import struct TSCBasic.StringError
 
 import enum TSCUtility.Git
 import struct TSCUtility.Version
@@ -308,8 +308,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
                     )
                 } else {
                     // Revision does not exist, so we customize the error.
-                    let sha1RegEx = try! RegEx(pattern: #"\A[:xdigit:]{40}\Z"#)
-                    let isBranchRev = sha1RegEx.matchGroups(in: revision).compactMap { $0 }.isEmpty
+                    let isBranchRev = revision.wholeMatch(of: #/[[:xdigit:]]{40}/#) == nil
                     let errorMessage = "could not find " + (isBranchRev ? "a branch named ‘\(revision)’" : "the commit \(revision)")
                     let mainBranchExists = (try? repository.resolveRevision(identifier: "main")) != nil
                     let suggestion = (revision == "master" && mainBranchExists) ? "did you mean ‘main’?" : nil          //ignore-unacceptable-language
@@ -396,24 +395,26 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
     }
 
     public func loadPackageTraits(at boundVersion: BoundVersion) async throws -> Set<TraitDescription> {
-        let revision: Revision
-        var version: Version?
+        try await self.loadManifest(at: boundVersion)?.traits ?? []
+    }
+
+    public func getDependencyTraitRequests(at boundVersion: BoundVersion, _ enabledTraits: EnabledTraits) async throws -> [Constraint] {
+        try await self.loadManifest(at: boundVersion)?.dependencyTraitRequests(enabledTraits) ?? []
+    }
+
+    private func loadManifest(at boundVersion: BoundVersion) async throws -> Manifest? {
         switch boundVersion {
-        case .version(let v):
-            guard let tag = try await self.knownVersions()[v] else {
-                throw StringError("unknown tag \(v)")
+        case .version(let version):
+            guard let tag = try await self.knownVersions()[version] else {
+                throw StringError("unknown tag \(version)")
             }
-            version = v
-            revision = try repository.resolveRevision(tag: tag)
+            return try await self.loadManifest(tag: tag, version: version)
         case .revision(let identifier, _):
-            revision = try repository.resolveRevision(identifier: identifier)
+            return try await self.loadManifest(at: repository.resolveRevision(identifier: identifier), version: nil)
         case .unversioned, .excluded:
             assertionFailure("Unexpected type requirement \(boundVersion)")
-            return []
+            return nil
         }
-
-        let manifest = try await self.loadManifest(at: revision, version: version)
-        return manifest.traits
     }
 
     /// Returns true if the tools version is valid and can be used by this
