@@ -6,6 +6,10 @@ Swift Next
 Swift 6.2
 ---------
 
+* [#8896]
+
+  Starting from tools-version 6.2, targets using `.unsafeFlags` in their `swiftSettings`, `cSettings`, `cxxSettings`, or `linkerSettings` are no longer disallowed as dependencies. This reverts the previous policy established in [SE-0238].
+
 * [#8314]
 
   Starting from tools-version 6.2, `SwiftSetting` provides a `strictMemorySafety` setting to enable the strict memory safety checking introduced in [SE-0458].
@@ -393,6 +397,7 @@ Swift 3.0
 [SE-0201]: https://github.com/swiftlang/swift-evolution/blob/main/proposals/0201-package-manager-local-dependencies.md
 [SE-0208]: https://github.com/swiftlang/swift-evolution/blob/main/proposals/0208-package-manager-system-library-targets.md
 [SE-0209]: https://github.com/swiftlang/swift-evolution/blob/main/proposals/0209-package-manager-swift-lang-version-update.md
+[SE-0238]: https://github.com/swiftlang/swift-evolution/blob/main/proposals/0238-package-manager-build-settings.md
 [SE-0272]: https://github.com/swiftlang/swift-evolution/blob/main/proposals/0272-swiftpm-binary-dependencies.md
 [SE-0292]: https://github.com/swiftlang/swift-evolution/blob/main/proposals/0292-package-registry-service.md
 [SE-0303]: https://github.com/swiftlang/swift-evolution/blob/main/proposals/0303-swiftpm-extensible-build-tools.md
@@ -461,3 +466,4 @@ Swift 3.0
 [#7813]: https://github.com/swiftlang/swift-package-manager/pull/7813
 [#8301]: https://github.com/swiftlang/swift-package-manager/pull/8301
 [#8314]: https://github.com/swiftlang/swift-package-manager/pull/8314
+[#8896]: https://github.com/swiftlang/swift-package-manager/pull/8896
