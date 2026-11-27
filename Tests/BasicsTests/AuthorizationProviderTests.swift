@@ -481,6 +481,15 @@ final class AuthorizationProviderTests: XCTestCase {
         XCTAssertEqual(auth?.password, "netrcpass")
     }
 
+    func testNetrcCaseInsensitiveHostMatch() throws {
+        let content = "machine Artifacts.Example.COM login netrcuser password netrcpass"
+        let provider = try InMemoryNetrcAuthorizationProvider(content: content)
+
+        let auth = provider.authentication(for: URL("https://artifacts.example.com/bundle.zip"))
+        XCTAssertEqual(auth?.user, "netrcuser")
+        XCTAssertEqual(auth?.password, "netrcpass")
+    }
+
     private func assertAuthentication(
         _ provider: AuthorizationProvider,
         for url: URL,

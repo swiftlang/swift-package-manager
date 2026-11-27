@@ -27,9 +27,11 @@ public struct Netrc: Sendable {
     /// - Parameters:
     ///   - url: The url to retrieve authorization information for.
     public func authorization(for url: URL) -> Authorization? {
-        guard let index = machines.firstIndex(where: { $0.name == url.host }) ?? machines
-            .firstIndex(where: { $0.isDefault })
-        else {
+        let hostMatchIndex = url.host.flatMap { host in
+            let normalizedHost = host.lowercased()
+            return machines.firstIndex(where: { $0.name.lowercased() == normalizedHost })
+        }
+        guard let index = hostMatchIndex ?? machines.firstIndex(where: { $0.isDefault }) else {
             return .none
         }
         let machine = self.machines[index]
