@@ -262,6 +262,7 @@ extension SwiftPackageCommand {
             case .binary, .plugin, .system: nil
             case .executable, .library, .macro: "Sources"
             case .test: "Tests"
+            @unknown default: nil
             }
 
             guard let outerDirectory else {
@@ -272,12 +273,14 @@ extension SwiftPackageCommand {
             let sourceFilePath = targetDir.appending(component: "\(target.name).swift")
 
             // Introduce imports for each of the dependencies that were specified.
-            var importModuleNames = target.dependencies.map {
+            var importModuleNames = target.dependencies.compactMap {
                 switch $0 {
                 case .byName(let name),
                      .target(let name),
                      .product(let name, package: _):
                     name
+                @unknown default:
+                    nil
                 }
             }
 
@@ -292,6 +295,9 @@ extension SwiftPackageCommand {
 
                 case .swiftTesting:
                     importModuleNames.append("Testing")
+
+                @unknown default:
+                    break
                 }
             }
 
@@ -371,6 +377,12 @@ extension SwiftPackageCommand {
                         }
                     }
                     """
+
+                @unknown default:
+                    """
+                    \(imports)
+                    // Test code here
+                    """
                 }
 
                 files.addSourceFile(path: sourceFilePath, sourceCode: sourceCode)
@@ -396,6 +408,9 @@ extension SwiftPackageCommand {
                     }
                     """
                 )
+
+            @unknown default:
+                break
             }
 
             for (file, sourceCode) in files {
